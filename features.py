@@ -1,43 +1,102 @@
-import numpy as np
 import pandas as pd
-from typing import Tuple
+import numpy as np
+import yfinance as yf
 
-def atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
-    h, l, c = df['High'], df['Low'], df['Close']
-    pc = c.shift(1)
-    tr = pd.concat([h-l, (h-pc).abs(), (l-pc).abs()], axis=1).max(axis=1)
-    return tr.rolling(n).mean()
+# =====================================================
+# Build stock feature set for model training
+# =====================================================
 
-def rsi(series: pd.Series, n: int = 14) -> pd.Series:
-    d = series.diff()
-    up = d.clip(lower=0)
-    dn = -d.clip(upper=0)
-    rs = up.rolling(n).mean() / dn.rolling(n).mean().replace(0, np.nan)
-    return (100 - 100/(1+rs)).fillna(50)
+def get_stock_data(symbol, period="6mo", interval="1d"):
+    try:
+        df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
+        if df.empty:
+            print(f"skip {symbol} — no data")
+            return None
+        # flatten possible multi-index columns
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [c[0] for c in df.columns]
+        df = df.reset_index()
+        df = df.rename(columns={
+            "Date": "date",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Adj Close": "adj_close",
+            "Volume": "volume"
+        })
+        return df
+    except Exception as e:
+        print(f"skip {symbol} — {e}")
+        return None
 
-def macd(series: pd.Series, fast=12, slow=26, sig=9) -> Tuple[pd.Series, pd.Series, pd.Series]:
-    ef = series.ewm(span=fast, adjust=False).mean()
-    es = series.ewm(span=slow, adjust=False).mean()
-    line = ef - es
-    signal = line.ewm(span=sig, adjust=False).mean()
-    hist = line - signal
-    return line, signal, hist
 
-def add_tech_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df['ATR14'] = atr(df, 14)
-    df['RSI14'] = rsi(df['Close'], 14)
-    m, s, h = macd(df['Close'], 12, 26, 9)
-    df['MACD'], df['MACDsig'], df['MACDh'] = m, s, h
-    df['Ret1'] = df['Close'].pct_change()
-    df['Ret5'] = df['Close'].pct_change(5)
-    for n in (10, 50, 200):
-        df[f'SMA{n}'] = df['Close'].rolling(n).mean()
-        df[f'SMA{n}_pct'] = (df['Close']/df[f'SMA{n}'] - 1)
-    df['VolMA20'] = df['Volume'].rolling(20).mean()
-    df['DollarVol'] = df['Close'] * df['Volume']
-    return df
+def build_features(df):
+    """Safely compute technical indicators and target variables."""
+    try:
+        # Ensure close column is a Series
+        df["close"] = pd.to_numeric(df["close"], errors="coerce")
 
-def future_max_return(close: pd.Series, h: int) -> pd.Series:
-    fmax = close[::-1].rolling(h).max()[::-1].shift(-1)
-    return (fmax/close) - 1
+        # Moving averages
+        df["SMA10"] = df["close"].rolling(window=10, min_periods=1).mean()
+        df["SMA20"] = df["close"].rolling(window=20, min_periods=1).mean()
+        df["SMA50"] = df["close"].rolling(window=50, min_periods=1).mean()
+
+        # SMA percentage change
+        df["SMA10_pct"] = df["SMA10"].pct_change().fillna(0)
+        df["SMA20_pct"] = df["SMA20"].pct_change().fillna(0)
+        df["SMA50_pct"] = df["SMA50"].pct_change().fillna(0)
+
+        # Returns
+        df["daily_return"] = df["close"].pct_change().fillna(0)
+
+        # Price distance from SMAs
+        df["price_vs_SMA10"] = (df["close"] - df["SMA10"]) / df["SMA10"]
+        df["price_vs_SMA20"] = (df["close"] - df["SMA20"]) / df["SMA20"]
+        df["price_vs_SMA50"] = (df["close"] - df["SMA50"]) / df["SMA50"]
+
+        # Volatility
+        df["volatility_10"] = df["daily_return"].rolling(10, min_periods=1).std().fillna(0)
+        df["volatility_20"] = df["daily_return"].rolling(20, min_periods=1).std().fillna(0)
+
+        # Lag features
+        for lag in [1, 2, 3, 5]:
+            df[f"return_lag_{lag}"] = df["daily_return"].shift(lag).fillna(0)
+
+        # Future returns and targets
+        df["future_return_10d"] = df["close"].shift(-10) / df["close"] - 1
+        df["target_11pct"] = (df["future_return_10d"] >= 0.11).astype(int)
+
+        df = df.dropna().reset_index(drop=True)
+        return df
+
+    except Exception as e:
+        print(f"Feature build error: {e}")
+        return None
+
+
+def build_dataset(symbols, period="6mo", interval="1d"):
+    """Combine multiple stocks into a single training DataFrame."""
+    frames = []
+    for sym in symbols:
+        df = get_stock_data(sym, period=period, interval=interval)
+        if df is None:
+            continue
+        feats = build_features(df)
+        if feats is not None and not feats.empty:
+            feats["symbol"] = sym
+            frames.append(feats)
+        else:
+            print(f"skip {sym} — no features built")
+
+    if not frames:
+        raise RuntimeError("No data built — check connectivity or symbols.py")
+
+    all_data = pd.concat(frames, ignore_index=True)
+    return all_data
+
+
+if __name__ == "__main__":
+    test_symbols = ["AAPL", "MSFT", "NVDA"]
+    data = build_dataset(test_symbols)
+    print(data.tail())
