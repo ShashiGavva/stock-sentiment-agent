@@ -4,4 +4,6 @@ lightgbm>=4.3
 scikit-learn>=1.5
 yfinance>=0.2.43
 python-dotenv>=1.0
+curl_cffi>=0.7
+requests>=2.31
 
