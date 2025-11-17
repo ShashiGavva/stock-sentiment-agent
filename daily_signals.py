@@ -7,9 +7,10 @@ import random
 import warnings
 from lightgbm import LGBMClassifier, LGBMRegressor
 from datetime import datetime
-from features import build_features
+from features import build_features, calculate_risk_indicators
 from symbols import get_all_us_tickers
 from curl_cffi import requests as curl_requests
+from risk_adjustment import get_final_signal_assessment
 
 # Suppress yfinance warnings and errors
 warnings.filterwarnings('ignore')
@@ -25,11 +26,15 @@ REG_PATH = "models/reg_q90_11.pkl"
 OUTPUT_PATH = "data/daily_signals.csv"
 
 BATCH_SIZE = 100  # tickers per batch
-PREDICTION_THRESHOLD = 0.6  # probability cutoff for "Buy" signal
+PREDICTION_THRESHOLD = 0.6  # probability cutoff for "Buy" signal (applied to ADJUSTED confidence if USE_RISK_ADJUSTMENT=True)
 REQUEST_DELAY = 0.15  # seconds between requests to avoid rate limiting
 MAX_RETRIES = 2  # number of retries for failed requests
 MIN_TICKER_LENGTH = 1  # minimum length for valid ticker symbols
 MAX_TICKER_LENGTH = 5  # maximum length for valid ticker symbols (filters out warrants/complex instruments)
+
+# Risk-Aware Confidence System
+USE_RISK_ADJUSTMENT = True  # Enable risk-adjusted confidence scoring
+MIN_SETUP_QUALITY = 30  # Minimum setup quality score (0-100) to include signal
 
 
 # =====================================================
@@ -191,22 +196,69 @@ def main():
                 continue
 
             try:
-                proba = clf.predict_proba(X)[0, 1]
+                base_proba = clf.predict_proba(X)[0, 1]
                 pred_q90 = reg.predict(X)[0]
             except Exception as e:
                 print(f"⚠️ Skipped {sym}: {e}")
                 continue
 
-            if proba >= PREDICTION_THRESHOLD:
-                all_signals.append(
-                    {
+            # Apply risk-aware confidence adjustment
+            if USE_RISK_ADJUSTMENT:
+                # Calculate risk indicators from raw price data
+                risk_indicators = calculate_risk_indicators(df)
+
+                if risk_indicators is not None:
+                    # Get full risk assessment
+                    assessment = get_final_signal_assessment(base_proba, risk_indicators)
+
+                    adjusted_proba = assessment['adjusted_probability']
+                    setup_quality = assessment['setup_quality_score']
+                    confidence_category = assessment['confidence_category']
+                    position_size = assessment['position_size']
+
+                    # Filter by adjusted confidence and setup quality
+                    if adjusted_proba >= PREDICTION_THRESHOLD and setup_quality >= MIN_SETUP_QUALITY:
+                        all_signals.append({
+                            "symbol": sym,
+                            "base_prob": round(base_proba, 3),
+                            "adjusted_prob": round(adjusted_proba, 3),
+                            "adjustment": round(assessment['adjustment_factor'], 2),
+                            "setup_quality": setup_quality,
+                            "confidence_category": confidence_category,
+                            "position_size": position_size,
+                            "predicted_return_q90": round(pred_q90 * 100, 2),
+                            "latest_close": feats["close"].iloc[-1],
+                            "risk_factors": "|".join(assessment['risk_factors']) if assessment['risk_factors'] else "none",
+                            "failure_patterns": "|".join(assessment['failure_patterns']) if assessment['failure_patterns'] else "none",
+                            "date": datetime.today().strftime("%Y-%m-%d"),
+                        })
+                else:
+                    # Fall back to base probability if risk indicators can't be calculated
+                    if base_proba >= PREDICTION_THRESHOLD:
+                        all_signals.append({
+                            "symbol": sym,
+                            "base_prob": round(base_proba, 3),
+                            "adjusted_prob": round(base_proba, 3),
+                            "adjustment": 1.0,
+                            "setup_quality": 50,  # Neutral
+                            "confidence_category": "MODERATE_CONFIDENCE",
+                            "position_size": 0.5,
+                            "predicted_return_q90": round(pred_q90 * 100, 2),
+                            "latest_close": feats["close"].iloc[-1],
+                            "risk_factors": "insufficient_data",
+                            "failure_patterns": "none",
+                            "date": datetime.today().strftime("%Y-%m-%d"),
+                        })
+            else:
+                # Original behavior without risk adjustment
+                if base_proba >= PREDICTION_THRESHOLD:
+                    all_signals.append({
                         "symbol": sym,
-                        "prob_11pct_up": round(proba, 3),
+                        "prob_11pct_up": round(base_proba, 3),
                         "predicted_return_q90": round(pred_q90 * 100, 2),
                         "latest_close": feats["close"].iloc[-1],
                         "date": datetime.today().strftime("%Y-%m-%d"),
-                    }
-                )
+                    })
 
         if (i // BATCH_SIZE + 1) % 1 == 0:  # Progress update every batch
             print(f"✅ {len(all_signals)} signals | ✓ {success_count} successful | ✗ {failed_count} failed")
@@ -214,10 +266,34 @@ def main():
     print(f"\n📈 Final stats: {success_count} successful downloads, {failed_count} failed")
 
     if all_signals:
-        df_out = pd.DataFrame(all_signals).sort_values(by="prob_11pct_up", ascending=False)
+        df_out = pd.DataFrame(all_signals)
+
+        # Sort by appropriate column depending on risk adjustment mode
+        if USE_RISK_ADJUSTMENT and 'adjusted_prob' in df_out.columns:
+            df_out = df_out.sort_values(by="adjusted_prob", ascending=False)
+        elif 'prob_11pct_up' in df_out.columns:
+            df_out = df_out.sort_values(by="prob_11pct_up", ascending=False)
+
         df_out.to_csv(OUTPUT_PATH, index=False)
         print(f"\n💾 Saved {len(df_out)} signals to {OUTPUT_PATH}")
-        print(df_out.head(10))
+
+        # Display results with appropriate formatting
+        if USE_RISK_ADJUSTMENT and 'adjusted_prob' in df_out.columns:
+            print("\n🎯 Top 10 Risk-Adjusted Signals:")
+            print("=" * 120)
+            display_cols = ['symbol', 'adjusted_prob', 'base_prob', 'setup_quality',
+                           'confidence_category', 'position_size', 'predicted_return_q90',
+                           'latest_close', 'risk_factors']
+            print(df_out[display_cols].head(10).to_string(index=False))
+
+            # Show distribution of confidence categories
+            print("\n📊 Confidence Distribution:")
+            if 'confidence_category' in df_out.columns:
+                cat_dist = df_out['confidence_category'].value_counts()
+                for cat, count in cat_dist.items():
+                    print(f"  {cat}: {count} signals")
+        else:
+            print(df_out.head(10))
     else:
         print("⚠️ No signals generated today.")
 
