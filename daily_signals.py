@@ -4,11 +4,17 @@ import yfinance as yf
 import pickle
 import time
 import random
+import warnings
 from lightgbm import LGBMClassifier, LGBMRegressor
 from datetime import datetime
 from features import build_features
 from symbols import get_all_us_tickers
 from curl_cffi import requests as curl_requests
+
+# Suppress yfinance warnings and errors
+warnings.filterwarnings('ignore')
+import logging
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
 
 # =====================================================
@@ -20,13 +26,33 @@ OUTPUT_PATH = "data/daily_signals.csv"
 
 BATCH_SIZE = 100  # tickers per batch
 PREDICTION_THRESHOLD = 0.6  # probability cutoff for "Buy" signal
-REQUEST_DELAY = 0.2  # seconds between requests to avoid rate limiting
-MAX_RETRIES = 3  # number of retries for failed requests
+REQUEST_DELAY = 0.15  # seconds between requests to avoid rate limiting
+MAX_RETRIES = 2  # number of retries for failed requests
+MIN_TICKER_LENGTH = 1  # minimum length for valid ticker symbols
+MAX_TICKER_LENGTH = 5  # maximum length for valid ticker symbols (filters out warrants/complex instruments)
 
 
 # =====================================================
 # HELPERS
 # =====================================================
+def filter_tickers(tickers):
+    """Filter ticker list to include only likely valid stock symbols."""
+    filtered = []
+    for ticker in tickers:
+        # Skip tickers with invalid characters or lengths
+        if not ticker or len(ticker) < MIN_TICKER_LENGTH or len(ticker) > MAX_TICKER_LENGTH:
+            continue
+        # Skip warrants, rights, and other complex instruments
+        if any(suffix in ticker for suffix in ['W', 'R', 'U', 'WS']):
+            if len(ticker) > 4:  # Allow single letter tickers like 'W' but not 'AAPLW'
+                continue
+        # Skip preferred shares
+        if '-' in ticker or '.' in ticker:
+            continue
+        filtered.append(ticker)
+    return filtered
+
+
 def create_session():
     """Create a curl_cffi session with browser impersonation."""
     try:
@@ -37,11 +63,12 @@ def create_session():
 
 
 def fetch_data(symbol, period="3mo", interval="1d", session=None, retry_count=0):
-    """Fetch OHLCV data for a given symbol with retry logic and better error handling."""
+    """Fetch OHLCV data for a given symbol with smart retry logic."""
     try:
         # Add a random delay to avoid rate limiting
-        delay = REQUEST_DELAY + random.uniform(0, 0.1)
-        time.sleep(delay)
+        if retry_count == 0:
+            delay = REQUEST_DELAY + random.uniform(0, 0.1)
+            time.sleep(delay)
 
         # Use Ticker object with session if available
         if session:
@@ -52,11 +79,7 @@ def fetch_data(symbol, period="3mo", interval="1d", session=None, retry_count=0)
         df = ticker.history(period=period, interval=interval, auto_adjust=True)
 
         if df.empty:
-            # Retry with exponential backoff if we got empty data
-            if retry_count < MAX_RETRIES:
-                backoff_delay = (2 ** retry_count) * REQUEST_DELAY
-                time.sleep(backoff_delay)
-                return fetch_data(symbol, period, interval, session, retry_count + 1)
+            # Don't retry if the ticker is likely delisted or invalid
             return None
 
         df = df.reset_index().rename(
@@ -71,8 +94,16 @@ def fetch_data(symbol, period="3mo", interval="1d", session=None, retry_count=0)
         )
         return df
     except Exception as e:
-        # Retry on errors with exponential backoff
-        if retry_count < MAX_RETRIES:
+        error_msg = str(e).lower()
+        # Only retry on network/rate-limit errors, not on delisted/invalid tickers
+        should_retry = (
+            'timeout' in error_msg or
+            'connection' in error_msg or
+            '429' in error_msg or
+            'rate limit' in error_msg
+        )
+
+        if should_retry and retry_count < MAX_RETRIES:
             backoff_delay = (2 ** retry_count) * REQUEST_DELAY
             time.sleep(backoff_delay)
             return fetch_data(symbol, period, interval, session, retry_count + 1)
@@ -93,11 +124,15 @@ def main():
 
     print("🔍 Fetching tickers...")
     try:
-        tickers = get_all_us_tickers()
+        all_tickers = get_all_us_tickers()
     except Exception as e:
         print(f"⚠️ Could not fetch tickers: {e}")
-        tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "AMD"]
-    print(f"✅ Loaded {len(tickers)} tickers")
+        all_tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "AMD"]
+
+    # Filter tickers to remove likely invalid ones
+    print(f"📋 Filtering {len(all_tickers)} tickers...")
+    tickers = filter_tickers(all_tickers)
+    print(f"✅ Processing {len(tickers)} tickers (filtered out {len(all_tickers) - len(tickers)} invalid/complex symbols)")
 
     # Create a session with browser impersonation
     print("🌐 Creating session with browser impersonation...")
@@ -111,9 +146,13 @@ def main():
     failed_count = 0
     success_count = 0
 
+    total_batches = (len(tickers) + BATCH_SIZE - 1) // BATCH_SIZE
+
     for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i : i + BATCH_SIZE]
-        print(f"\n📊 Processing batch {i//BATCH_SIZE + 1}: {len(batch)} tickers ({i+1}-{i+len(batch)})")
+        batch_num = i // BATCH_SIZE + 1
+        progress_pct = (i / len(tickers)) * 100
+        print(f"\n📊 Batch {batch_num}/{total_batches} ({progress_pct:.1f}%): Processing {len(batch)} tickers")
 
         for sym in batch:
             df = fetch_data(sym, session=session)
