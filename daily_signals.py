@@ -92,6 +92,11 @@ def fetch_data(symbol, period="3mo", interval="1d", session=None, retry_count=0)
                 "Volume": "volume",
             }
         )
+
+        # Keep only the columns we need (yfinance sometimes adds Dividends, Stock Splits, etc.)
+        required_cols = ["date", "open", "high", "low", "close", "volume"]
+        df = df[[col for col in required_cols if col in df.columns]]
+
         return df
     except Exception as e:
         error_msg = str(e).lower()
@@ -166,13 +171,24 @@ def main():
             if feats is None or feats.empty:
                 continue
 
-            # drop non-numeric and target columns
+            # drop non-numeric and target columns, then select only the features the model was trained on
             drop_cols = ["future_return_10d", "target_11pct", "date", "symbol"]
-            X = (
-                feats.drop(columns=drop_cols, errors="ignore")
-                .select_dtypes(include=[np.number])
-                .iloc[-1:]
-            )
+            feature_names = clf_pack.get("features", [
+                "close", "high", "low", "open", "volume",
+                "SMA10", "SMA20", "SMA50",
+                "SMA10_pct", "SMA20_pct", "SMA50_pct",
+                "daily_return",
+                "price_vs_SMA10", "price_vs_SMA20", "price_vs_SMA50",
+                "volatility_10", "volatility_20",
+                "return_lag_1", "return_lag_2", "return_lag_3", "return_lag_5"
+            ])
+
+            # Select only the features that the model was trained on, in the same order
+            try:
+                X = feats[feature_names].iloc[-1:]
+            except KeyError as e:
+                print(f"⚠️ Skipped {sym}: Missing required features: {e}")
+                continue
 
             try:
                 proba = clf.predict_proba(X)[0, 1]
