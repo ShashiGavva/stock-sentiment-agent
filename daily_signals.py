@@ -6,17 +6,21 @@ from lightgbm import LGBMClassifier, LGBMRegressor
 from datetime import datetime
 from features import build_features
 from symbols import get_all_us_tickers
+from utils import is_valid_stock
 
 
 # =====================================================
 # CONFIG
 # =====================================================
-CLF_PATH = "models/clf_lgbm_11.pkl"
-REG_PATH = "models/reg_q90_11.pkl"
+import config
+
+CLF_PATH = config.CLF_PATH  # Now points to clf_lgbm_08.pkl (8% target)
+REG_PATH = config.Q90_PATH  # Now points to reg_q90_08.pkl
 OUTPUT_PATH = "data/daily_signals.csv"
 
 BATCH_SIZE = 500  # tickers per batch
-PREDICTION_THRESHOLD = 0.6  # probability cutoff for "Buy" signal
+PREDICTION_THRESHOLD = config.CONFIDENCE_TIERS['medium']  # 0.6 - medium confidence threshold
+MIN_VOLUME = 100000  # minimum average daily volume (liquidity filter)
 
 
 # =====================================================
@@ -77,9 +81,14 @@ def main():
             if df is None:
                 continue
 
-            feats = build_features(df)
+            feats = build_features(df, symbol=sym, include_sentiment=True)
             if feats is None or feats.empty:
                 continue
+
+            # Validate that this is a tradeable stock (not ETF, mutual fund, etc.)
+            validation = is_valid_stock(sym, min_volume=MIN_VOLUME)
+            if not validation['is_valid']:
+                continue  # Skip ETFs, mutual funds, low-volume stocks, etc.
 
             # drop non-numeric and target columns
             drop_cols = ["future_return_10d", "target_11pct", "date", "symbol"]

@@ -8,23 +8,25 @@ from datetime import datetime, timedelta
 from lightgbm import LGBMClassifier, LGBMRegressor
 from features import build_features
 from symbols import get_all_us_tickers
+import config
 
 # =====================================================
 # CONFIG
 # =====================================================
-DATA_DIR = "data"
-MODEL_DIR = "models"
+DATA_DIR = config.DATA_DIR
+MODEL_DIR = config.MODELS_DIR
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-CLF_PATH = os.path.join(MODEL_DIR, "clf_lgbm_11.pkl")
-REG_PATH = os.path.join(MODEL_DIR, "reg_q90_11.pkl")
+# Update model names to reflect new 8% target
+CLF_PATH = os.path.join(MODEL_DIR, "clf_lgbm_08.pkl")
+REG_PATH = os.path.join(MODEL_DIR, "reg_q90_08.pkl")
 DATA_PATH = os.path.join(DATA_DIR, "training_dataset_full.csv")
 TICKER_CACHE = os.path.join(DATA_DIR, "us_tickers.csv")
 
 BATCH_SIZE = 500
-TARGET_RETURN = 0.11
-FUTURE_DAYS = 10
+TARGET_RETURN = config.TARGET_UPSIDE  # Now 0.08 (8%) instead of 0.11 (11%)
+FUTURE_DAYS = config.HORIZON_DAYS
 
 # Auto-refresh thresholds
 MODEL_MAX_AGE_DAYS = 30

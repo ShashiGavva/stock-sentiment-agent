@@ -83,17 +83,22 @@ def calculate_actual_return(symbol, entry_date, horizon_days=10):
         
         if df.empty or len(df) < 2:
             return None
-        
+
+        # Handle MultiIndex columns if present
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+
         # Get entry price (first available) and exit price (after horizon_days trading days)
-        entry_price = df['Close'].iloc[0]
-        
+        # Use .item() or .values[0] to ensure we get a scalar, not a Series
+        entry_price = float(df['Close'].iloc[0])
+
         # Find price after horizon_days trading days
         if len(df) > horizon_days:
-            exit_price = df['Close'].iloc[horizon_days]
+            exit_price = float(df['Close'].iloc[horizon_days])
         else:
-            exit_price = df['Close'].iloc[-1]  # use last available if not enough days
-        
-        actual_return = (exit_price - entry_price) / entry_price
+            exit_price = float(df['Close'].iloc[-1])  # use last available if not enough days
+
+        actual_return = float((exit_price - entry_price) / entry_price)
         return actual_return
         
     except Exception as e:

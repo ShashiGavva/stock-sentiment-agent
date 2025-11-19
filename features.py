@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import yfinance as yf
+from sentiment import get_news_sentiment
 
 # =====================================================
 # Build stock feature set for model training
@@ -31,8 +32,15 @@ def get_stock_data(symbol, period="6mo", interval="1d"):
         return None
 
 
-def build_features(df):
-    """Safely compute technical indicators and target variables."""
+def build_features(df, symbol=None, include_sentiment=True):
+    """
+    Safely compute technical indicators and target variables.
+
+    Args:
+        df: DataFrame with OHLCV data
+        symbol: Stock ticker symbol (needed for sentiment analysis)
+        include_sentiment: Whether to include sentiment features (default: True)
+    """
     try:
         # Ensure close column is a Series
         df["close"] = pd.to_numeric(df["close"], errors="coerce")
@@ -66,6 +74,24 @@ def build_features(df):
         # Future returns and targets
         df["future_return_10d"] = df["close"].shift(-10) / df["close"] - 1
         df["target_11pct"] = (df["future_return_10d"] >= 0.11).astype(int)
+
+        # Sentiment features (if enabled and symbol provided)
+        if include_sentiment and symbol:
+            sentiment = get_news_sentiment(symbol, lookback_days=7)
+            # Add sentiment as constant features across all rows
+            # (sentiment is point-in-time for current analysis)
+            df["news_count"] = sentiment['news_count']
+            df["sentiment_score"] = sentiment['sentiment_score']
+            df["sentiment_positive"] = sentiment['sentiment_positive']
+            df["sentiment_negative"] = sentiment['sentiment_negative']
+            df["sentiment_neutral"] = sentiment['sentiment_neutral']
+        else:
+            # Add neutral sentiment if not available
+            df["news_count"] = 0
+            df["sentiment_score"] = 0.0
+            df["sentiment_positive"] = 0.0
+            df["sentiment_negative"] = 0.0
+            df["sentiment_neutral"] = 1.0
 
         df = df.dropna().reset_index(drop=True)
         return df
