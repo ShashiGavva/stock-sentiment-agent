@@ -147,7 +147,7 @@ def backtest_model(test_symbols, backtest_days=60):
             
             # Prepare features
             X = feats[feats['date'] == signal_date].drop(
-                columns=['future_return_10d', 'target_11pct', 'date', 'symbol'],
+                columns=['future_return_10d', 'target_hit', 'date', 'symbol'],
                 errors='ignore'
             ).select_dtypes(include=[np.number])
             

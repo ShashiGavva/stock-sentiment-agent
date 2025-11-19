@@ -91,7 +91,7 @@ def main():
                 continue  # Skip ETFs, mutual funds, low-volume stocks, etc.
 
             # drop non-numeric and target columns
-            drop_cols = ["future_return_10d", "target_11pct", "date", "symbol"]
+            drop_cols = ["future_return_10d", "target_hit", "date", "symbol"]
             X = (
                 feats.drop(columns=drop_cols, errors="ignore")
                 .select_dtypes(include=[np.number])

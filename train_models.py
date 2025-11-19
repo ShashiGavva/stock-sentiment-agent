@@ -129,13 +129,13 @@ def train():
     df = pd.concat(all_frames, ignore_index=True)
     print(f"✅ Final dataset size: {df.shape[0]} rows × {df.shape[1]} columns")
 
-    # --- Define target
-    df["target_11pct"] = (df["future_return_10d"] >= TARGET_RETURN).astype(int)
-    X = df.drop(columns=["future_return_10d", "target_11pct", "date", "symbol"], errors="ignore")
-    y = df["target_11pct"]
+    # --- Define target (using config TARGET_UPSIDE)
+    df["target_hit"] = (df["future_return_10d"] >= TARGET_RETURN).astype(int)
+    X = df.drop(columns=["future_return_10d", "target_hit", "date", "symbol"], errors="ignore")
+    y = df["target_hit"]
 
     # --- Train classifier
-    print("🚀 Training LightGBM classifier (target ≥11%)...")
+    print(f"🚀 Training LightGBM classifier (target ≥{TARGET_RETURN*100:.0f}%)...")
     clf = LGBMClassifier(
         n_estimators=300,
         max_depth=6,

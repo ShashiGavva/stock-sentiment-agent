@@ -73,7 +73,9 @@ def build_features(df, symbol=None, include_sentiment=True):
 
         # Future returns and targets
         df["future_return_10d"] = df["close"].shift(-10) / df["close"] - 1
-        df["target_11pct"] = (df["future_return_10d"] >= 0.11).astype(int)
+        # Use config TARGET_UPSIDE (0.08) instead of hardcoded 11%
+        import config
+        df["target_hit"] = (df["future_return_10d"] >= config.TARGET_UPSIDE).astype(int)
 
         # Sentiment features (if enabled and symbol provided)
         if include_sentiment and symbol:
