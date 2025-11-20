@@ -89,34 +89,89 @@ def get_all_us_tickers(force_refresh=False):
 
 def get_sp500_tickers(force_refresh=False):
     """
-    Fetch S&P 500 tickers from Wikipedia.
-    - More reliable than all US tickers
-    - Better data quality (liquid, established companies)
-    - Caches locally for 30 days
+    Get S&P 500 tickers from static file (no network calls needed).
+
+    Sources (in order of preference):
+    1. Static file (sp500_static.csv - 503 stocks, always available)
+    2. SlickCharts API (if forced refresh)
+    3. Wikipedia (as backup)
+    4. Hardcoded fallback list (80 core stocks)
+
+    Args:
+        force_refresh: If True, attempts to fetch fresh list from online sources
 
     Returns:
         list: S&P 500 ticker symbols
     """
     os.makedirs("data", exist_ok=True)
 
-    # 1. Use cached version if recent and not forced
-    if not force_refresh and os.path.exists(SP500_CACHE_FILE):
-        mtime = datetime.fromtimestamp(os.path.getmtime(SP500_CACHE_FILE))
-        if datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS):
-            df = pd.read_csv(SP500_CACHE_FILE)
+    # 1. Use static file (most reliable - no network needed)
+    static_file = "data/sp500_static.csv"
+    if os.path.exists(static_file) and not force_refresh:
+        try:
+            df = pd.read_csv(static_file)
             tickers = sorted(df["Symbol"].unique().tolist())
-            print(f"✅ Loaded {len(tickers)} cached S&P 500 tickers (updated {mtime.date()})")
+            print(f"✅ Loaded {len(tickers)} S&P 500 tickers from static file")
+            return tickers
+        except Exception as e:
+            print(f"⚠️ Could not read static file: {e}, trying online sources...")
+
+    # 2. Try SlickCharts (more reliable, no rate limiting)
+    try:
+        print("🔍 Fetching S&P 500 list from SlickCharts...")
+        url = "https://www.slickcharts.com/sp500"
+
+        # Use headers to avoid being blocked
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        # Parse HTML table
+        tables = pd.read_html(response.text)
+        df = tables[0]  # First table has the constituents
+
+        # Extract tickers (usually in 'Symbol' or first column)
+        if 'Symbol' in df.columns:
+            tickers = df['Symbol'].tolist()
+        elif 'Ticker' in df.columns:
+            tickers = df['Ticker'].tolist()
+        else:
+            # Try second column (first is usually rank)
+            tickers = df.iloc[:, 1].tolist()
+
+        # Clean tickers
+        tickers = [str(t).strip().replace('.', '-').upper() for t in tickers if pd.notna(t)]
+        tickers = sorted(set(tickers))
+
+        if len(tickers) > 400:  # Sanity check (S&P 500 should have ~500 stocks)
+            # Save cache
+            pd.DataFrame({"Symbol": tickers}).to_csv(SP500_CACHE_FILE, index=False)
+            print(f"💾 Cached {len(tickers)} S&P 500 tickers from SlickCharts")
             return tickers
         else:
-            print("🔁 S&P 500 cache older than 30 days — refreshing...")
+            print(f"⚠️ SlickCharts returned only {len(tickers)} tickers, trying Wikipedia...")
 
-    # 2. Fetch from Wikipedia
+    except Exception as e:
+        print(f"⚠️ Could not fetch from SlickCharts: {e}, trying Wikipedia...")
+
+    # 3. Try Wikipedia as backup
     try:
         print("🔍 Fetching S&P 500 list from Wikipedia...")
         url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
-        # Read tables from Wikipedia page
-        tables = pd.read_html(url)
+        # Use headers to avoid being blocked
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        # Read tables from page
+        tables = pd.read_html(response.text)
         df = tables[0]  # First table contains the constituents
 
         # Extract tickers (Symbol column)
@@ -129,12 +184,12 @@ def get_sp500_tickers(force_refresh=False):
             tickers = df.iloc[:, 0].tolist()
 
         # Clean tickers (remove any special characters, dots, etc.)
-        tickers = [str(t).strip().replace('.', '-') for t in tickers if pd.notna(t)]
+        tickers = [str(t).strip().replace('.', '-').upper() for t in tickers if pd.notna(t)]
         tickers = sorted(set(tickers))
 
         # Save cache
         pd.DataFrame({"Symbol": tickers}).to_csv(SP500_CACHE_FILE, index=False)
-        print(f"💾 Cached {len(tickers)} S&P 500 tickers to {SP500_CACHE_FILE}")
+        print(f"💾 Cached {len(tickers)} S&P 500 tickers from Wikipedia")
 
         return tickers
 

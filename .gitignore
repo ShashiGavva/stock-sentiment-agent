@@ -40,6 +40,7 @@ Thumbs.db
 *.pkl.backup
 data/*.csv
 !data/.gitkeep
+!data/sp500_static.csv
 models/*.pkl
 !models/.gitkeep
 
