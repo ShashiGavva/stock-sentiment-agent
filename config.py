@@ -2,6 +2,9 @@
 HORIZON_DAYS = 10       # look-ahead window
 TARGET_UPSIDE = 0.08    # +8% movers (reduced from 11% for more realistic targets)
 
+# Stock Universe
+USE_SP500_ONLY = True   # True = S&P 500 only (~500 stocks), False = All US stocks (~5000)
+
 # Filters
 MIN_ATR_PCT = 0.02      # ATR/price >= 2%
 MIN_DOLLAR_VOL = 1_000_000  # $ volume floor

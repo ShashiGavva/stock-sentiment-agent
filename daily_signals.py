@@ -5,7 +5,7 @@ import pickle
 from lightgbm import LGBMClassifier, LGBMRegressor
 from datetime import datetime
 from features import build_features
-from symbols import get_all_us_tickers
+from symbols import get_all_us_tickers, get_sp500_tickers
 from utils import is_valid_stock
 
 
@@ -65,7 +65,12 @@ def main():
 
     print("🔍 Fetching tickers...")
     try:
-        tickers = get_all_us_tickers()
+        if config.USE_SP500_ONLY:
+            print("📊 Using S&P 500 stocks only")
+            tickers = get_sp500_tickers()
+        else:
+            print("📊 Using all US stocks")
+            tickers = get_all_us_tickers()
     except Exception as e:
         print(f"⚠️ Could not fetch tickers: {e}")
         tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "AMD"]

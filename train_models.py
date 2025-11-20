@@ -7,7 +7,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from lightgbm import LGBMClassifier, LGBMRegressor
 from features import build_features
-from symbols import get_all_us_tickers
+from symbols import get_all_us_tickers, get_sp500_tickers
 import config
 
 # =====================================================
@@ -91,12 +91,21 @@ def build_dataset(tickers):
 # MAIN TRAINING LOGIC
 # =====================================================
 def train():
-    # --- Check ticker freshness
-    if is_stale(TICKER_CACHE, CACHE_MAX_AGE_DAYS):
-        print("🔁 Ticker cache stale — refreshing...")
-        tickers = get_all_us_tickers(force_refresh=True)
+    # --- Check ticker freshness and get appropriate ticker list
+    print("🔍 Fetching tickers...")
+    if config.USE_SP500_ONLY:
+        print("📊 Using S&P 500 stocks only for training")
+        if is_stale(DATA_DIR + "/sp500_tickers.csv", CACHE_MAX_AGE_DAYS):
+            tickers = get_sp500_tickers(force_refresh=True)
+        else:
+            tickers = get_sp500_tickers()
     else:
-        tickers = get_all_us_tickers()
+        print("📊 Using all US stocks for training")
+        if is_stale(TICKER_CACHE, CACHE_MAX_AGE_DAYS):
+            print("🔁 Ticker cache stale — refreshing...")
+            tickers = get_all_us_tickers(force_refresh=True)
+        else:
+            tickers = get_all_us_tickers()
 
     print(f"✅ Loaded {len(tickers)} tickers for training")
 
