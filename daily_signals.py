@@ -86,7 +86,8 @@ def main():
             if df is None:
                 continue
 
-            feats = build_features(df, symbol=sym, include_sentiment=True)
+            # NOTE: Sentiment disabled - models trained without sentiment features (21 features)
+            feats = build_features(df, symbol=sym, include_sentiment=False)
             if feats is None or feats.empty:
                 continue
 

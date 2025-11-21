@@ -45,39 +45,61 @@ def is_stale(filepath: str, max_age_days: int) -> bool:
     return age > max_age_days
 
 
-def fetch_data(symbol, period="6mo", interval="1d"):
-    """Fetch price data for a single ticker."""
-    try:
-        df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
-        if df.empty:
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [c[0] for c in df.columns]
-        df = df.reset_index().rename(
-            columns={
-                "Date": "date",
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Adj Close": "adj_close",
-                "Volume": "volume",
-            }
-        )
-        return df
-    except Exception as e:
-        print(f"⚠️ {symbol}: {e}")
-        return None
+def fetch_data(symbol, period="6mo", interval="1d", max_retries=3):
+    """Fetch price data for a single ticker with retry logic."""
+    for attempt in range(max_retries):
+        try:
+            # Add delay to avoid rate limiting
+            if attempt > 0:
+                sleep_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s
+                time.sleep(sleep_time)
+
+            df = yf.download(
+                symbol,
+                period=period,
+                interval=interval,
+                progress=False,
+                auto_adjust=True,
+                timeout=30
+            )
+            if df.empty:
+                return None
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = [c[0] for c in df.columns]
+            df = df.reset_index().rename(
+                columns={
+                    "Date": "date",
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Adj Close": "adj_close",
+                    "Volume": "volume",
+                }
+            )
+            return df
+        except Exception as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, give up
+                return None
+            # Retry on next iteration
+            continue
+    return None
 
 
 def build_dataset(tickers):
     """Build feature dataset across tickers."""
     frames = []
-    for sym in tickers:
+    for i, sym in enumerate(tickers):
+        # Add small delay to avoid rate limiting (every 10 tickers)
+        if i > 0 and i % 10 == 0:
+            time.sleep(1)
+
         df = fetch_data(sym)
         if df is None:
             continue
-        feats = build_features(df)
+        # Temporarily disable sentiment during training to reduce API calls
+        feats = build_features(df, symbol=sym, include_sentiment=False)
         if feats is None or feats.empty:
             continue
         feats["symbol"] = sym
@@ -108,6 +130,11 @@ def train():
             tickers = get_all_us_tickers()
 
     print(f"✅ Loaded {len(tickers)} tickers for training")
+
+    # Limit to top 50 tickers initially to avoid rate limiting
+    if len(tickers) > 50:
+        print(f"⚠️ Limiting to first 50 tickers to avoid rate limiting")
+        tickers = tickers[:50]
 
     # --- Check model freshness
     retrain_needed = (
