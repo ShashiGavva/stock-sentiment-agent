@@ -289,6 +289,6 @@ if __name__ == '__main__':
     print(f"Target: {config.TARGET_UPSIDE * 100}% in {config.HORIZON_DAYS} days")
     print(f"Threshold: {config.CONFIDENCE_TIERS.get('medium', 0.60) * 100}%")
     print("=" * 60)
-    print("Starting server at http://localhost:5000")
+    print("Starting server at http://localhost:5001")
     print("=" * 60)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
