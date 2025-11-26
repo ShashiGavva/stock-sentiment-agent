@@ -27,9 +27,12 @@
 
         /* Header */
         .header {
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 40px 20px;
             margin-bottom: 30px;
+            gap: 20px;
         }
 
         .header h1 {
@@ -392,8 +395,18 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1>Stock Sentiment Agent</h1>
-            <p>AI-powered stock signals with {{ config.TARGET_UPSIDE * 100 }}% target in {{ config.HORIZON_DAYS }} days</p>
+            <div style="flex: 1;">
+                <h1>Stock Sentiment Agent</h1>
+                <p>AI-powered stock signals with {{ config.TARGET_UPSIDE * 100 }}% target in {{ config.HORIZON_DAYS }} days</p>
+            </div>
+            <div>
+                <a href="/daytrading" class="btn btn-secondary" style="text-decoration: none;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Day Trading
+                </a>
+            </div>
         </header>
 
         <!-- Model Warning -->
