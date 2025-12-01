@@ -350,6 +350,138 @@
             margin-top: 10px;
         }
 
+        /* Position Tracking */
+        .position-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .position-section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #10b981;
+        }
+
+        .position-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .form-group input {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #e4e4e7;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .position-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .position-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+
+        .position-info-label {
+            color: #94a3b8;
+        }
+
+        .position-info-value {
+            color: #e4e4e7;
+            font-weight: 600;
+        }
+
+        .pnl-display {
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .pnl-display.profit {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .pnl-display.loss {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        /* Weekly P&L Stats */
+        .pnl-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .pnl-stat {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .pnl-stat-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .pnl-stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .pnl-stat-value.positive {
+            color: #10b981;
+        }
+
+        .pnl-stat-value.negative {
+            color: #ef4444;
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -449,6 +581,31 @@
 
                         <div class="scanner-status" id="scanner-status">
                             Idle
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weekly P&L -->
+                <div class="panel">
+                    <div class="panel-title">📊 This Week's P&L</div>
+                    <div id="weekly-pnl">
+                        <div class="pnl-stats">
+                            <div class="pnl-stat">
+                                <div class="pnl-stat-label">Total P&L</div>
+                                <div class="pnl-stat-value" id="pnl-total">$0.00</div>
+                            </div>
+                            <div class="pnl-stat">
+                                <div class="pnl-stat-label">Win Rate</div>
+                                <div class="pnl-stat-value" id="pnl-winrate">0%</div>
+                            </div>
+                            <div class="pnl-stat">
+                                <div class="pnl-stat-label">Trades</div>
+                                <div class="pnl-stat-value" id="pnl-trades">0</div>
+                            </div>
+                            <div class="pnl-stat">
+                                <div class="pnl-stat-label">Winners</div>
+                                <div class="pnl-stat-value positive" id="pnl-winners">0</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -666,8 +823,65 @@
         function createSignalCard(signal, index) {
             const card = document.createElement('div');
             card.className = `signal-card ${signal.signal.toLowerCase()}`;
+            card.dataset.signalId = signal.signal_id;
 
             const rrColor = signal.risk_reward >= 2 ? '#10b981' : signal.risk_reward >= 1.5 ? '#eab308' : '#ef4444';
+
+            let positionHTML = '';
+            if (signal.has_position && signal.position_data) {
+                // Position exists - show close position form
+                const posData = signal.position_data;
+                positionHTML = `
+                    <div class="position-section">
+                        <div class="position-section-title">📍 Active Position</div>
+                        <div class="position-info">
+                            <div class="position-info-row">
+                                <span class="position-info-label">Bought At:</span>
+                                <span class="position-info-value">$${posData.buy_price}</span>
+                            </div>
+                            <div class="position-info-row">
+                                <span class="position-info-label">Amount:</span>
+                                <span class="position-info-value">$${posData.amount}</span>
+                            </div>
+                            <div class="position-info-row">
+                                <span class="position-info-label">Entry Time:</span>
+                                <span class="position-info-value">${new Date(posData.entry_time).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="position-form">
+                            <div class="form-group">
+                                <label>Sell Price</label>
+                                <input type="number" step="0.01" placeholder="Exit price" id="sell-price-${signal.signal_id}">
+                            </div>
+                            <button class="btn btn-danger btn-small" onclick="closePosition('${signal.signal_id}')">
+                                Close Position
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // No position - show entry form
+                positionHTML = `
+                    <div class="position-section">
+                        <div class="position-section-title">💰 Enter Position</div>
+                        <div class="position-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Buy Price</label>
+                                    <input type="number" step="0.01" value="${signal.entry}" id="buy-price-${signal.signal_id}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount ($)</label>
+                                    <input type="number" step="1" placeholder="1000" id="amount-${signal.signal_id}">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-small" onclick="openPosition('${signal.signal_id}')">
+                                Enter Position
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
 
             card.innerHTML = `
                 <div class="signal-header">
@@ -701,6 +915,8 @@
                 <div class="chart-container">
                     <canvas id="chart-${index}"></canvas>
                 </div>
+
+                ${positionHTML}
             `;
 
             // Render chart after card is added to DOM
@@ -767,6 +983,102 @@
             });
         }
 
+        // Open a position
+        async function openPosition(signalId) {
+            const buyPrice = parseFloat(document.getElementById(`buy-price-${signalId}`).value);
+            const amount = parseFloat(document.getElementById(`amount-${signalId}`).value);
+
+            if (!buyPrice || !amount) {
+                alert('Please enter both buy price and amount');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/daytrading/position/open', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        signal_id: signalId,
+                        buy_price: buyPrice,
+                        amount: amount
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Refresh signals to show updated position
+                    await checkStatus();
+                    await loadWeeklyPnL();
+                } else {
+                    alert(data.error || 'Failed to open position');
+                }
+            } catch (error) {
+                console.error('Error opening position:', error);
+                alert('Failed to open position');
+            }
+        }
+
+        // Close a position
+        async function closePosition(signalId) {
+            const sellPrice = parseFloat(document.getElementById(`sell-price-${signalId}`).value);
+
+            if (!sellPrice) {
+                alert('Please enter sell price');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/daytrading/position/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        signal_id: signalId,
+                        sell_price: sellPrice
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Show P&L alert
+                    const pnl = data.profit_loss;
+                    const pnlPercent = data.profit_loss_percent;
+                    const message = pnl >= 0
+                        ? `✅ Position closed with profit: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`
+                        : `❌ Position closed with loss: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`;
+                    alert(message);
+
+                    // Refresh signals and P&L
+                    await checkStatus();
+                    await loadWeeklyPnL();
+                } else {
+                    alert(data.error || 'Failed to close position');
+                }
+            } catch (error) {
+                console.error('Error closing position:', error);
+                alert('Failed to close position');
+            }
+        }
+
+        // Load weekly P&L
+        async function loadWeeklyPnL() {
+            try {
+                const response = await fetch('/api/daytrading/pnl/weekly');
+                const data = await response.json();
+
+                // Update P&L display
+                const totalEl = document.getElementById('pnl-total');
+                totalEl.textContent = `$${data.total_pnl.toFixed(2)}`;
+                totalEl.className = 'pnl-stat-value ' + (data.total_pnl >= 0 ? 'positive' : 'negative');
+
+                document.getElementById('pnl-winrate').textContent = `${data.win_rate.toFixed(1)}%`;
+                document.getElementById('pnl-trades').textContent = data.num_trades;
+                document.getElementById('pnl-winners').textContent = data.winning_trades;
+
+            } catch (error) {
+                console.error('Error loading weekly P&L:', error);
+            }
+        }
+
         // Event listeners
         document.getElementById('add-ticker-btn').addEventListener('click', addTicker);
         document.getElementById('ticker-input').addEventListener('keypress', (e) => {
@@ -777,6 +1089,9 @@
 
         // Initialize on page load
         init();
+        loadWeeklyPnL();
+        // Refresh P&L every 30 seconds
+        setInterval(loadWeeklyPnL, 30000);
     </script>
 </body>
 </html>

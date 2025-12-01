@@ -46,7 +46,8 @@ day_trade_state = {
     'watchlist': [],  # User's custom watchlist
     'scanning': False,  # Continuous scanning flag
     'scan_interval': 60,  # Scan every 60 seconds
-    'signal_history': []  # Track all signals
+    'signal_history': [],  # Track all signals
+    'positions': {}  # Active positions: {signal_id: {buy_price, amount, timestamp, signal_data}}
 }
 
 # Lock for thread-safe state updates
@@ -55,6 +56,71 @@ day_trade_lock = threading.Lock()
 
 # Continuous scanning control
 scan_control = {'running': False}
+
+
+def load_trade_history():
+    """Load trade history from JSON file."""
+    import json
+    history_file = os.path.join(config.DATA_DIR, 'trade_history.json')
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+
+def save_trade_history(trade):
+    """Save a closed trade to history."""
+    import json
+    history_file = os.path.join(config.DATA_DIR, 'trade_history.json')
+
+    # Load existing history
+    history = load_trade_history()
+
+    # Add new trade
+    history.append(trade)
+
+    # Save back to file
+    os.makedirs(config.DATA_DIR, exist_ok=True)
+    with open(history_file, 'w') as f:
+        json.dump(history, f, indent=2)
+
+
+def get_weekly_pnl():
+    """Calculate weekly P&L from trade history."""
+    history = load_trade_history()
+    if not history:
+        return {'total_pnl': 0, 'num_trades': 0, 'win_rate': 0, 'trades': []}
+
+    # Filter to current week
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    week_start = now - timedelta(days=now.weekday())
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    weekly_trades = []
+    for trade in history:
+        if 'close_time' in trade:
+            trade_date = datetime.fromisoformat(trade['close_time'])
+            if trade_date >= week_start:
+                weekly_trades.append(trade)
+
+    # Calculate metrics
+    total_pnl = sum(t.get('profit_loss', 0) for t in weekly_trades)
+    num_trades = len(weekly_trades)
+    winning_trades = sum(1 for t in weekly_trades if t.get('profit_loss', 0) > 0)
+    win_rate = (winning_trades / num_trades * 100) if num_trades > 0 else 0
+
+    return {
+        'total_pnl': round(total_pnl, 2),
+        'num_trades': num_trades,
+        'win_rate': round(win_rate, 1),
+        'winning_trades': winning_trades,
+        'losing_trades': num_trades - winning_trades,
+        'trades': weekly_trades
+    }
 
 
 def fetch_data(symbol, period="3mo", interval="1d"):
@@ -394,7 +460,11 @@ def scan_day_trades_task(interval='5m', use_watchlist=False, continuous=False):
                             # Calculate entry/exit levels
                             levels = calculate_entry_exit_levels(df, sig['type'])
 
+                            # Generate unique signal ID
+                            signal_id = f"{symbol}_{sig['indicator'].replace(' ', '_')}_{int(time.time() * 1000)}"
+
                             signal_obj = {
+                                'signal_id': signal_id,
                                 'symbol': symbol,
                                 'signal': sig['type'],
                                 'indicator': sig['indicator'],
@@ -409,7 +479,8 @@ def scan_day_trades_task(interval='5m', use_watchlist=False, continuous=False):
                                 'target': levels['target'],
                                 'risk_reward': levels['risk_reward'],
                                 'timestamp': scan_time,
-                                'candlestick_data': candle_data
+                                'candlestick_data': candle_data,
+                                'has_position': False  # Will be updated if position exists
                             }
                             signals.append(signal_obj)
 
@@ -425,6 +496,36 @@ def scan_day_trades_task(interval='5m', use_watchlist=False, continuous=False):
 
                 # Small delay between stocks
                 time.sleep(0.3)
+
+            # Merge with existing positions to persist signals
+            with day_trade_lock:
+                # Add signals from active positions that weren't in new scan
+                for signal_id, position in day_trade_state['positions'].items():
+                    position_signal = position.get('signal_data')
+                    if position_signal:
+                        # Check if this stock has a new signal
+                        has_new_signal = any(s['symbol'] == position_signal['symbol'] for s in signals)
+                        if not has_new_signal:
+                            # Keep the old signal with position data
+                            position_signal['has_position'] = True
+                            position_signal['position_data'] = {
+                                'buy_price': position['buy_price'],
+                                'amount': position['amount'],
+                                'entry_time': position['timestamp']
+                            }
+                            signals.append(position_signal)
+
+                # Mark signals that have active positions
+                for signal in signals:
+                    for signal_id, position in day_trade_state['positions'].items():
+                        if position.get('signal_data', {}).get('symbol') == signal['symbol']:
+                            signal['has_position'] = True
+                            signal['position_data'] = {
+                                'buy_price': position['buy_price'],
+                                'amount': position['amount'],
+                                'entry_time': position['timestamp']
+                            }
+                            break
 
             # Sort by strength
             strength_order = {'High': 3, 'Medium': 2, 'Low': 1}
@@ -591,6 +692,126 @@ def api_market_status():
     """Get market status."""
     market = get_market_status()
     return jsonify(market)
+
+
+@app.route('/api/daytrading/position/open', methods=['POST'])
+def api_open_position():
+    """Open a position on a signal."""
+    data = request.get_json() or {}
+    signal_id = data.get('signal_id')
+    buy_price = data.get('buy_price')
+    amount = data.get('amount')
+
+    if not signal_id or buy_price is None or amount is None:
+        return jsonify({'error': 'signal_id, buy_price, and amount required'}), 400
+
+    # Find the signal
+    with day_trade_lock:
+        signal_data = None
+        for sig in day_trade_state['signals']:
+            if sig.get('signal_id') == signal_id:
+                signal_data = sig.copy()
+                break
+
+        if not signal_data:
+            return jsonify({'error': 'Signal not found'}), 404
+
+        # Save position
+        day_trade_state['positions'][signal_id] = {
+            'signal_id': signal_id,
+            'buy_price': float(buy_price),
+            'amount': float(amount),
+            'timestamp': datetime.now().isoformat(),
+            'signal_data': signal_data
+        }
+
+    return jsonify({'success': True, 'message': 'Position opened'})
+
+
+@app.route('/api/daytrading/position/close', methods=['POST'])
+def api_close_position():
+    """Close a position and calculate P&L."""
+    data = request.get_json() or {}
+    signal_id = data.get('signal_id')
+    sell_price = data.get('sell_price')
+
+    if not signal_id or sell_price is None:
+        return jsonify({'error': 'signal_id and sell_price required'}), 400
+
+    with day_trade_lock:
+        if signal_id not in day_trade_state['positions']:
+            return jsonify({'error': 'Position not found'}), 404
+
+        position = day_trade_state['positions'][signal_id]
+        buy_price = position['buy_price']
+        amount = position['amount']
+
+        # Calculate P&L
+        if position['signal_data']['signal'] == 'BUY':
+            profit_loss = (float(sell_price) - buy_price) * amount
+        else:  # SELL signal
+            profit_loss = (buy_price - float(sell_price)) * amount
+
+        profit_loss_percent = ((float(sell_price) - buy_price) / buy_price * 100) if buy_price > 0 else 0
+
+        # Create trade record
+        trade = {
+            'signal_id': signal_id,
+            'symbol': position['signal_data']['symbol'],
+            'signal_type': position['signal_data']['signal'],
+            'indicator': position['signal_data']['indicator'],
+            'buy_price': buy_price,
+            'sell_price': float(sell_price),
+            'amount': amount,
+            'profit_loss': round(profit_loss, 2),
+            'profit_loss_percent': round(profit_loss_percent, 2),
+            'entry_time': position['timestamp'],
+            'close_time': datetime.now().isoformat(),
+            'strength': position['signal_data'].get('strength'),
+            'entry_suggested': position['signal_data'].get('entry'),
+            'stop_suggested': position['signal_data'].get('stop'),
+            'target_suggested': position['signal_data'].get('target')
+        }
+
+        # Save to trade history
+        save_trade_history(trade)
+
+        # Remove from active positions
+        del day_trade_state['positions'][signal_id]
+
+        # Remove signal from signals list
+        day_trade_state['signals'] = [
+            s for s in day_trade_state['signals']
+            if s.get('signal_id') != signal_id
+        ]
+
+    return jsonify({
+        'success': True,
+        'profit_loss': trade['profit_loss'],
+        'profit_loss_percent': trade['profit_loss_percent'],
+        'trade': trade
+    })
+
+
+@app.route('/api/daytrading/positions', methods=['GET'])
+def api_get_positions():
+    """Get all active positions."""
+    with day_trade_lock:
+        return jsonify({'positions': list(day_trade_state['positions'].values())})
+
+
+@app.route('/api/daytrading/pnl/weekly', methods=['GET'])
+def api_weekly_pnl():
+    """Get weekly P&L report."""
+    pnl = get_weekly_pnl()
+    return jsonify(pnl)
+
+
+@app.route('/api/daytrading/history/trades', methods=['GET'])
+def api_trade_history():
+    """Get trade history."""
+    history = load_trade_history()
+    return jsonify({'trades': history})
 
 
 if __name__ == '__main__':
