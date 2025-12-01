@@ -42,12 +42,19 @@ day_trade_state = {
     'signals': [],
     'error': None,
     'last_run': None,
-    'start_time': None
+    'start_time': None,
+    'watchlist': [],  # User's custom watchlist
+    'scanning': False,  # Continuous scanning flag
+    'scan_interval': 60,  # Scan every 60 seconds
+    'signal_history': []  # Track all signals
 }
 
 # Lock for thread-safe state updates
 state_lock = threading.Lock()
 day_trade_lock = threading.Lock()
+
+# Continuous scanning control
+scan_control = {'running': False}
 
 
 def fetch_data(symbol, period="3mo", interval="1d"):
@@ -300,81 +307,151 @@ def api_cached():
 # DAY TRADING ROUTES
 # ============================================================================
 
-def scan_day_trades_task(interval='5m', use_watchlist=False):
+def calculate_entry_exit_levels(df, signal_type):
+    """Calculate entry, stop loss, and target prices."""
+    latest = df.iloc[-1]
+    price = float(latest['close'])
+    atr = float(latest['high'] - latest['low'])  # Simple ATR
+    vwap = float(latest['vwap'])
+
+    if signal_type == 'BUY':
+        # Entry slightly above current price
+        entry = round(price * 1.002, 2)  # 0.2% above
+        # Stop below recent low or below VWAP
+        stop = round(min(price - (atr * 1.5), vwap * 0.995), 2)
+        # Target based on ATR or resistance
+        target = round(price + (atr * 2), 2)
+    else:  # SELL
+        entry = round(price * 0.998, 2)  # 0.2% below
+        stop = round(max(price + (atr * 1.5), vwap * 1.005), 2)
+        target = round(price - (atr * 2), 2)
+
+    risk = abs(entry - stop)
+    reward = abs(target - entry)
+    risk_reward = round(reward / risk, 2) if risk > 0 else 0
+
+    return {
+        'entry': entry,
+        'stop': stop,
+        'target': target,
+        'risk': round(risk, 2),
+        'reward': round(reward, 2),
+        'risk_reward': risk_reward
+    }
+
+
+def scan_day_trades_task(interval='5m', use_watchlist=False, continuous=False):
     """Background task to scan for day trading signals."""
-    global day_trade_state
+    global day_trade_state, scan_control
 
     with day_trade_lock:
         day_trade_state['status'] = 'running'
         day_trade_state['progress'] = 0
-        day_trade_state['signals'] = []
         day_trade_state['error'] = None
         day_trade_state['start_time'] = time.time()
+        if continuous:
+            day_trade_state['scanning'] = True
+            scan_control['running'] = True
 
     try:
-        # Get tickers
-        if use_watchlist:
-            tickers = get_watchlist_stocks()
-        else:
-            tickers = get_sp500_tickers()[:50]  # Top 50 for speed
-
-        with day_trade_lock:
-            day_trade_state['total'] = len(tickers)
-
-        signals = []
-
-        for i, symbol in enumerate(tickers):
+        while True:
+            # Get tickers from custom watchlist
             with day_trade_lock:
-                day_trade_state['progress'] = i + 1
-                day_trade_state['current_ticker'] = symbol
+                tickers = day_trade_state['watchlist'].copy()
+                if not tickers:
+                    tickers = ['AAPL', 'TSLA', 'NVDA', 'AMD', 'META']  # Default
+                day_trade_state['total'] = len(tickers)
+                scan_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            try:
-                # Build intraday features
-                df = build_intraday_features(symbol, interval=interval, days_back=2)
+            signals = []
 
-                if df is None or df.empty:
+            for i, symbol in enumerate(tickers):
+                # Check if we should stop
+                if continuous and not scan_control['running']:
+                    break
+
+                with day_trade_lock:
+                    day_trade_state['progress'] = i + 1
+                    day_trade_state['current_ticker'] = symbol
+
+                try:
+                    # Build intraday features
+                    df = build_intraday_features(symbol, interval=interval, days_back=2)
+
+                    if df is None or df.empty:
+                        continue
+
+                    # Generate signals
+                    stock_signals = generate_day_trading_signals(df)
+
+                    if stock_signals:
+                        latest = df.iloc[-1]
+
+                        # Get candlestick data (last 20 periods)
+                        candle_data = df.tail(20)[['timestamp', 'open', 'high', 'low', 'close', 'volume']].to_dict('records')
+
+                        for sig in stock_signals:
+                            # Calculate entry/exit levels
+                            levels = calculate_entry_exit_levels(df, sig['type'])
+
+                            signal_obj = {
+                                'symbol': symbol,
+                                'signal': sig['type'],
+                                'indicator': sig['indicator'],
+                                'reason': sig['reason'],
+                                'strength': sig['strength'],
+                                'price': round(float(latest['close']), 2),
+                                'vwap': round(float(latest['vwap']), 2),
+                                'rsi': round(float(latest['rsi']), 1),
+                                'volume_ratio': round(float(latest['relative_volume']), 2),
+                                'entry': levels['entry'],
+                                'stop': levels['stop'],
+                                'target': levels['target'],
+                                'risk_reward': levels['risk_reward'],
+                                'timestamp': scan_time,
+                                'candlestick_data': candle_data
+                            }
+                            signals.append(signal_obj)
+
+                            # Add to signal history
+                            with day_trade_lock:
+                                day_trade_state['signal_history'].append(signal_obj)
+                                # Keep only last 100 signals
+                                if len(day_trade_state['signal_history']) > 100:
+                                    day_trade_state['signal_history'] = day_trade_state['signal_history'][-100:]
+
+                except Exception as e:
                     continue
 
-                # Generate signals
-                stock_signals = generate_day_trading_signals(df)
+                # Small delay between stocks
+                time.sleep(0.3)
 
-                if stock_signals:
-                    latest = df.iloc[-1]
+            # Sort by strength
+            strength_order = {'High': 3, 'Medium': 2, 'Low': 1}
+            signals.sort(key=lambda x: (strength_order.get(x['strength'], 0), x['signal'] == 'BUY'), reverse=True)
 
-                    for sig in stock_signals:
-                        signals.append({
-                            'symbol': symbol,
-                            'signal': sig['type'],
-                            'indicator': sig['indicator'],
-                            'reason': sig['reason'],
-                            'strength': sig['strength'],
-                            'price': round(float(latest['close']), 2),
-                            'vwap': round(float(latest['vwap']), 2),
-                            'rsi': round(float(latest['rsi']), 1),
-                            'volume_ratio': round(float(latest['relative_volume']), 2)
-                        })
+            with day_trade_lock:
+                day_trade_state['signals'] = signals
+                day_trade_state['last_run'] = scan_time
+                day_trade_state['current_ticker'] = ''
 
-            except Exception as e:
-                continue
+                if continuous and scan_control['running']:
+                    day_trade_state['status'] = 'scanning'
+                else:
+                    day_trade_state['status'] = 'complete'
 
-            # Rate limiting
-            if i > 0 and i % 10 == 0:
-                time.sleep(0.5)
-
-        # Sort by strength
-        strength_order = {'High': 3, 'Medium': 2, 'Low': 1}
-        signals.sort(key=lambda x: (strength_order.get(x['strength'], 0), x['signal'] == 'BUY'), reverse=True)
-
-        with day_trade_lock:
-            day_trade_state['status'] = 'complete'
-            day_trade_state['signals'] = signals
-            day_trade_state['last_run'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            day_trade_state['current_ticker'] = ''
+            # If continuous scanning, wait before next scan
+            if continuous and scan_control['running']:
+                time.sleep(day_trade_state['scan_interval'])
+            else:
+                break  # Single scan complete
 
     except Exception as e:
         with day_trade_lock:
             day_trade_state['status'] = 'error'
             day_trade_state['error'] = str(e)
+            day_trade_state['scanning'] = False
+        scan_control['running'] = False
 
 
 @app.route('/daytrading')
@@ -402,26 +479,88 @@ def daytrading():
                          cached_date=cached_date)
 
 
-@app.route('/api/daytrading/scan', methods=['POST'])
-def api_daytrading_scan():
-    """Start day trading scan."""
-    global day_trade_state
+@app.route('/api/daytrading/watchlist', methods=['GET'])
+def api_get_watchlist():
+    """Get custom watchlist."""
+    with day_trade_lock:
+        return jsonify({'watchlist': day_trade_state['watchlist']})
+
+
+@app.route('/api/daytrading/watchlist/add', methods=['POST'])
+def api_add_to_watchlist():
+    """Add ticker to watchlist."""
+    data = request.get_json() or {}
+    symbol = data.get('symbol', '').upper().strip()
+
+    if not symbol:
+        return jsonify({'error': 'Symbol required'}), 400
 
     with day_trade_lock:
-        if day_trade_state['status'] == 'running':
-            return jsonify({'error': 'Scan already in progress'}), 400
+        if symbol not in day_trade_state['watchlist']:
+            if len(day_trade_state['watchlist']) >= 10:
+                return jsonify({'error': 'Watchlist limit (10 stocks) reached'}), 400
+            day_trade_state['watchlist'].append(symbol)
+
+    return jsonify({'success': True, 'watchlist': day_trade_state['watchlist']})
+
+
+@app.route('/api/daytrading/watchlist/remove', methods=['POST'])
+def api_remove_from_watchlist():
+    """Remove ticker from watchlist."""
+    data = request.get_json() or {}
+    symbol = data.get('symbol', '').upper().strip()
+
+    with day_trade_lock:
+        if symbol in day_trade_state['watchlist']:
+            day_trade_state['watchlist'].remove(symbol)
+
+    return jsonify({'success': True, 'watchlist': day_trade_state['watchlist']})
+
+
+@app.route('/api/daytrading/scan/start', methods=['POST'])
+def api_start_continuous_scan():
+    """Start continuous scanning."""
+    global scan_control
+
+    with day_trade_lock:
+        if day_trade_state['scanning']:
+            return jsonify({'error': 'Already scanning'}), 400
 
     # Get parameters
     data = request.get_json() or {}
     interval = data.get('interval', '5m')
-    use_watchlist = data.get('watchlist', False)
+    scan_frequency = data.get('frequency', 60)  # seconds
+
+    with day_trade_lock:
+        day_trade_state['scan_interval'] = scan_frequency
 
     # Start background task
-    thread = threading.Thread(target=scan_day_trades_task, args=(interval, use_watchlist))
+    thread = threading.Thread(target=scan_day_trades_task, args=(interval, False, True))
     thread.daemon = True
     thread.start()
 
-    return jsonify({'status': 'started'})
+    return jsonify({'status': 'started', 'scanning': True})
+
+
+@app.route('/api/daytrading/scan/stop', methods=['POST'])
+def api_stop_continuous_scan():
+    """Stop continuous scanning."""
+    global scan_control
+
+    scan_control['running'] = False
+
+    with day_trade_lock:
+        day_trade_state['scanning'] = False
+        day_trade_state['status'] = 'idle'
+
+    return jsonify({'status': 'stopped', 'scanning': False})
+
+
+@app.route('/api/daytrading/history', methods=['GET'])
+def api_signal_history():
+    """Get signal history."""
+    with day_trade_lock:
+        return jsonify({'history': day_trade_state['signal_history']})
 
 
 @app.route('/api/daytrading/status')
@@ -429,7 +568,7 @@ def api_daytrading_status():
     """Get day trading scan status."""
     with day_trade_lock:
         elapsed = 0
-        if day_trade_state['start_time'] and day_trade_state['status'] == 'running':
+        if day_trade_state['start_time'] and day_trade_state['status'] in ['running', 'scanning']:
             elapsed = int(time.time() - day_trade_state['start_time'])
 
         return jsonify({
@@ -440,7 +579,10 @@ def api_daytrading_status():
             'signals': day_trade_state['signals'],
             'error': day_trade_state['error'],
             'last_run': day_trade_state['last_run'],
-            'elapsed_seconds': elapsed
+            'elapsed_seconds': elapsed,
+            'scanning': day_trade_state['scanning'],
+            'watchlist': day_trade_state['watchlist'],
+            'scan_interval': day_trade_state['scan_interval']
         })
 
 
