@@ -579,8 +579,15 @@
                             ⏸ Stop Scanning
                         </button>
 
+                        <button class="btn" id="retrain-btn" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;" onclick="triggerRetrain()">
+                            🔄 Retrain Models (Weekly)
+                        </button>
+
                         <div class="scanner-status" id="scanner-status">
                             Idle
+                        </div>
+                        <div class="scanner-status" id="retrain-status" style="display: none;">
+                            Retraining in progress...
                         </div>
                     </div>
                 </div>
@@ -626,6 +633,10 @@
     <script>
         let pollInterval = null;
         let watchlist = [];
+
+        // Audio notification sounds
+        const successSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZQQ0PVKzn8Kxd');
+        const errorSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAgYCFhYWEg4ODgoGBgYGCg4SFhYaHh4iJiYqLi4yMjY2Oj5CRkpKTlJWVlpeYmZqanJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5urq7vL2+v8DBwsLDxMXGx8jIycrLzM3Oz9DR0tLT1NXW19jZ2trc3d7f4OHi4+Tl5ufo6err');
 
         // Initialize
         async function init() {
@@ -758,6 +769,63 @@
             }
         }
 
+        // Trigger model retraining
+        async function triggerRetrain() {
+            if (!confirm('This will retrain the ML models based on your recent trades. This may take several minutes. Continue?')) {
+                return;
+            }
+
+            const retrainBtn = document.getElementById('retrain-btn');
+            const retrainStatus = document.getElementById('retrain-status');
+            const scannerStatus = document.getElementById('scanner-status');
+
+            try {
+                // Disable button and show status
+                retrainBtn.disabled = true;
+                retrainBtn.textContent = '⏳ Retraining...';
+                scannerStatus.style.display = 'none';
+                retrainStatus.style.display = 'block';
+                retrainStatus.className = 'scanner-status scanning';
+
+                const response = await fetch('/api/daytrading/retrain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ days: 7 })  // Use past 7 days
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✅ Models retrained successfully!\n\n` +
+                          `Trades processed: ${data.trades_processed}\n` +
+                          `Training samples: ${data.training_samples}\n` +
+                          `Timestamp: ${new Date(data.timestamp).toLocaleString()}`);
+                    retrainStatus.textContent = `✅ Last retrain: ${new Date().toLocaleString()}`;
+                    retrainStatus.className = 'scanner-status';
+                } else {
+                    alert(`❌ Retraining failed: ${data.error}`);
+                    retrainStatus.textContent = `❌ Retraining failed`;
+                    retrainStatus.className = 'scanner-status';
+                }
+
+            } catch (error) {
+                console.error('Error retraining models:', error);
+                alert(`❌ Error: ${error.message}`);
+                retrainStatus.textContent = `❌ Error during retraining`;
+                retrainStatus.className = 'scanner-status';
+            } finally {
+                // Re-enable button
+                retrainBtn.disabled = false;
+                retrainBtn.textContent = '🔄 Retrain Models (Weekly)';
+
+                // Show scanner status again after 5 seconds
+                setTimeout(() => {
+                    retrainStatus.style.display = 'none';
+                    scannerStatus.style.display = 'block';
+                }, 5000);
+            }
+        }
+
         // Check scan status
         async function checkStatus() {
             try {
@@ -849,9 +917,15 @@
                             </div>
                         </div>
                         <div class="position-form">
-                            <div class="form-group">
-                                <label>Sell Price</label>
-                                <input type="number" step="0.01" placeholder="Exit price" id="sell-price-${signal.signal_id}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Sell Price</label>
+                                    <input type="number" step="0.01" placeholder="Exit price" id="sell-price-${signal.signal_id}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Quantity (Optional)</label>
+                                    <input type="number" step="1" placeholder="Leave empty for full position" id="sell-quantity-${signal.signal_id}">
+                                </div>
                             </div>
                             <button class="btn btn-danger btn-small" onclick="closePosition('${signal.signal_id}')">
                                 Close Position
@@ -1021,26 +1095,51 @@
         // Close a position
         async function closePosition(signalId) {
             const sellPrice = parseFloat(document.getElementById(`sell-price-${signalId}`).value);
+            const quantityInput = document.getElementById(`sell-quantity-${signalId}`);
+            const quantity = quantityInput && quantityInput.value ? parseFloat(quantityInput.value) : null;
 
             if (!sellPrice) {
                 alert('Please enter sell price');
                 return;
             }
 
+            if (quantity !== null && quantity <= 0) {
+                alert('Quantity must be greater than 0 or left empty for full position');
+                return;
+            }
+
             try {
+                const payload = {
+                    signal_id: signalId,
+                    sell_price: sellPrice
+                };
+
+                // Add quantity if specified (for partial close)
+                if (quantity !== null) {
+                    payload.quantity = quantity;
+                }
+
                 const response = await fetch('/api/daytrading/position/close', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        signal_id: signalId,
-                        sell_price: sellPrice
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await response.json();
                 if (data.success) {
-                    // Show P&L alert
+                    // Play audio notification
                     const pnl = data.profit_loss;
+                    try {
+                        if (pnl >= 0) {
+                            successSound.play().catch(e => console.log('Audio play failed:', e));
+                        } else {
+                            errorSound.play().catch(e => console.log('Audio play failed:', e));
+                        }
+                    } catch (e) {
+                        console.log('Audio notification failed:', e);
+                    }
+
+                    // Show P&L alert
                     const pnlPercent = data.profit_loss_percent;
                     const message = pnl >= 0
                         ? `✅ Position closed with profit: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`

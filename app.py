@@ -730,10 +730,11 @@ def api_open_position():
 
 @app.route('/api/daytrading/position/close', methods=['POST'])
 def api_close_position():
-    """Close a position and calculate P&L."""
+    """Close a position (full or partial) and calculate P&L."""
     data = request.get_json() or {}
     signal_id = data.get('signal_id')
     sell_price = data.get('sell_price')
+    quantity = data.get('quantity')  # Optional: for partial closes
 
     if not signal_id or sell_price is None:
         return jsonify({'error': 'signal_id and sell_price required'}), 400
@@ -744,13 +745,21 @@ def api_close_position():
 
         position = day_trade_state['positions'][signal_id]
         buy_price = position['buy_price']
-        amount = position['amount']
+        position_amount = position['amount']
 
-        # Calculate P&L
+        # Determine close amount (partial or full)
+        if quantity is not None:
+            close_amount = min(float(quantity), position_amount)  # Can't close more than owned
+            is_partial_close = close_amount < position_amount
+        else:
+            close_amount = position_amount  # Full close
+            is_partial_close = False
+
+        # Calculate P&L for the closed amount
         if position['signal_data']['signal'] == 'BUY':
-            profit_loss = (float(sell_price) - buy_price) * amount
+            profit_loss = (float(sell_price) - buy_price) * close_amount
         else:  # SELL signal
-            profit_loss = (buy_price - float(sell_price)) * amount
+            profit_loss = (buy_price - float(sell_price)) * close_amount
 
         profit_loss_percent = ((float(sell_price) - buy_price) / buy_price * 100) if buy_price > 0 else 0
 
@@ -762,7 +771,7 @@ def api_close_position():
             'indicator': position['signal_data']['indicator'],
             'buy_price': buy_price,
             'sell_price': float(sell_price),
-            'amount': amount,
+            'amount': close_amount,
             'profit_loss': round(profit_loss, 2),
             'profit_loss_percent': round(profit_loss_percent, 2),
             'entry_time': position['timestamp'],
@@ -770,20 +779,29 @@ def api_close_position():
             'strength': position['signal_data'].get('strength'),
             'entry_suggested': position['signal_data'].get('entry'),
             'stop_suggested': position['signal_data'].get('stop'),
-            'target_suggested': position['signal_data'].get('target')
+            'target_suggested': position['signal_data'].get('target'),
+            'is_partial_close': is_partial_close,
+            'remaining_amount': position_amount - close_amount if is_partial_close else 0
         }
 
         # Save to trade history
         save_trade_history(trade)
 
-        # Remove from active positions
-        del day_trade_state['positions'][signal_id]
+        # Handle partial vs full close
+        if is_partial_close:
+            # Reduce position amount
+            position['amount'] = position_amount - close_amount
+            print(f"✅ Partial close: {close_amount} shares sold, {position['amount']} remaining")
+        else:
+            # Remove from active positions
+            del day_trade_state['positions'][signal_id]
 
-        # Remove signal from signals list
-        day_trade_state['signals'] = [
-            s for s in day_trade_state['signals']
-            if s.get('signal_id') != signal_id
-        ]
+            # Remove signal from signals list
+            day_trade_state['signals'] = [
+                s for s in day_trade_state['signals']
+                if s.get('signal_id') != signal_id
+            ]
+            print(f"✅ Full position closed for {signal_id}")
 
     return jsonify({
         'success': True,
@@ -812,6 +830,64 @@ def api_trade_history():
     """Get trade history."""
     history = load_trade_history()
     return jsonify({'trades': history})
+
+
+@app.route('/api/daytrading/retrain', methods=['POST'])
+def api_retrain_models():
+    """
+    Trigger weekly model retraining based on trade history.
+    Optional parameter: days (default: 7)
+    """
+    try:
+        data = request.get_json() or {}
+        days = data.get('days', 7)
+
+        # Import here to avoid circular imports and load only when needed
+        import weekly_retrain
+
+        print(f"\n🔄 Starting model retraining (past {days} days)...")
+
+        # Load trades
+        trades = weekly_retrain.load_trade_history(days=days)
+        if not trades:
+            return jsonify({
+                'success': False,
+                'error': 'No trades found in the specified period'
+            })
+
+        # Prepare training data
+        training_samples = weekly_retrain.prepare_training_data_from_trades(trades)
+        if not training_samples:
+            return jsonify({
+                'success': False,
+                'error': 'No valid training samples generated from trades'
+            })
+
+        # Retrain models
+        success = weekly_retrain.retrain_models(training_samples)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Models retrained successfully using {len(training_samples)} trades',
+                'trades_processed': len(trades),
+                'training_samples': len(training_samples),
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Model retraining failed (check logs for details)'
+            })
+
+    except Exception as e:
+        print(f"❌ Retraining error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':
