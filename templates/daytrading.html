@@ -450,6 +450,105 @@
             font-size: 0.75rem;
         }
 
+        /* Active Positions Widget */
+        .positions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .position-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            border-left: 3px solid #10b981;
+        }
+
+        .position-row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .position-row-symbol {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #06b6d4;
+        }
+
+        .position-row-close {
+            padding: 4px 8px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .position-row-close:hover {
+            background: #dc2626;
+        }
+
+        .position-row-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            font-size: 0.7rem;
+        }
+
+        .position-row-field {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .position-row-label {
+            color: #94a3b8;
+            font-size: 0.65rem;
+        }
+
+        .position-row-input {
+            padding: 4px 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: #e4e4e7;
+            font-size: 0.75rem;
+            width: 100%;
+        }
+
+        .position-row-input:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .position-row-pnl {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .position-row-pnl.profit {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .position-row-pnl.loss {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
         /* Weekly P&L Stats */
         .pnl-stats {
             display: grid;
@@ -590,6 +689,16 @@
                         </div>
                         <div class="scanner-status" id="retrain-status" style="display: none;">
                             Retraining in progress...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Positions -->
+                <div class="panel">
+                    <div class="panel-title">📍 Active Positions</div>
+                    <div id="active-positions-list" class="positions-list">
+                        <div class="empty-state" style="padding: 20px; font-size: 0.8rem;">
+                            No active positions
                         </div>
                     </div>
                 </div>
@@ -981,65 +1090,13 @@
 
             const rrColor = signal.risk_reward >= 2 ? '#10b981' : signal.risk_reward >= 1.5 ? '#eab308' : '#ef4444';
 
+            // Show enter position button only if no position exists
             let positionHTML = '';
-            if (signal.has_position && signal.position_data) {
-                // Position exists - show close position form
-                const posData = signal.position_data;
+            if (!signal.has_position) {
                 positionHTML = `
-                    <div class="position-section">
-                        <div class="position-section-title">📍 Active Position</div>
-                        <div class="position-info">
-                            <div class="position-info-row">
-                                <span class="position-info-label">Bought At:</span>
-                                <span class="position-info-value">$${posData.buy_price}</span>
-                            </div>
-                            <div class="position-info-row">
-                                <span class="position-info-label">Amount:</span>
-                                <span class="position-info-value">$${posData.amount}</span>
-                            </div>
-                            <div class="position-info-row">
-                                <span class="position-info-label">Entry Time:</span>
-                                <span class="position-info-value">${new Date(posData.entry_time).toLocaleString()}</span>
-                            </div>
-                        </div>
-                        <div class="position-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Sell Price</label>
-                                    <input type="number" step="0.01" placeholder="Exit price" id="sell-price-${signal.signal_id}">
-                                </div>
-                                <div class="form-group">
-                                    <label>Quantity (Optional)</label>
-                                    <input type="number" step="1" placeholder="Leave empty for full position" id="sell-quantity-${signal.signal_id}">
-                                </div>
-                            </div>
-                            <button class="btn btn-danger btn-small" onclick="closePosition('${signal.signal_id}')">
-                                Close Position
-                            </button>
-                        </div>
-                    </div>
-                `;
-            } else {
-                // No position - show entry form
-                positionHTML = `
-                    <div class="position-section">
-                        <div class="position-section-title">💰 Enter Position</div>
-                        <div class="position-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Buy Price</label>
-                                    <input type="number" step="0.01" value="${signal.entry}" id="buy-price-${signal.signal_id}">
-                                </div>
-                                <div class="form-group">
-                                    <label>Amount ($)</label>
-                                    <input type="number" step="1" placeholder="1000" id="amount-${signal.signal_id}">
-                                </div>
-                            </div>
-                            <button class="btn btn-primary btn-small" onclick="openPosition('${signal.signal_id}')">
-                                Enter Position
-                            </button>
-                        </div>
-                    </div>
+                    <button class="btn btn-primary btn-small" style="width: 100%; margin-top: 8px;" onclick="quickEnterPosition('${signal.signal_id}', '${signal.symbol}', ${signal.entry})">
+                        💰 Enter Position
+                    </button>
                 `;
             }
 
@@ -1143,7 +1200,234 @@
             });
         }
 
-        // Open a position
+        // Quick enter position (captures current price, defaults to $1000)
+        async function quickEnterPosition(signalId, symbol, currentPrice) {
+            const buyPrice = currentPrice;
+            const amount = 1000; // Default $1000
+
+            try {
+                const response = await fetch('/api/daytrading/position/open', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        signal_id: signalId,
+                        buy_price: buyPrice,
+                        amount: amount
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Refresh signals to update has_position status
+                    await checkStatus();
+
+                    // Add position row to sidebar
+                    addPositionRow(signalId, symbol, buyPrice, amount);
+                } else {
+                    alert(data.error || 'Failed to enter position');
+                }
+            } catch (error) {
+                console.error('Error opening position:', error);
+                alert('Failed to enter position');
+            }
+        }
+
+        // Add position row to sidebar widget
+        function addPositionRow(signalId, symbol, buyPrice, amount) {
+            const positionsList = document.getElementById('active-positions-list');
+
+            // Remove empty state if exists
+            const emptyState = positionsList.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            // Check if position already exists
+            const existing = document.getElementById(`position-${signalId}`);
+            if (existing) {
+                return; // Already exists
+            }
+
+            const positionRow = document.createElement('div');
+            positionRow.className = 'position-row';
+            positionRow.id = `position-${signalId}`;
+            positionRow.dataset.signalId = signalId;
+            positionRow.dataset.symbol = symbol;
+            positionRow.dataset.buyPrice = buyPrice;
+            positionRow.dataset.amount = amount;
+
+            positionRow.innerHTML = `
+                <div class="position-row-header">
+                    <div class="position-row-symbol">${symbol}</div>
+                    <button class="position-row-close" onclick="closePositionFromWidget('${signalId}')">Close</button>
+                </div>
+                <div class="position-row-details">
+                    <div class="position-row-field">
+                        <span class="position-row-label">Entry Price</span>
+                        <input type="number" step="0.01" value="${buyPrice}"
+                               class="position-row-input" id="edit-price-${signalId}"
+                               onchange="updatePositionField('${signalId}', 'price', this.value)">
+                    </div>
+                    <div class="position-row-field">
+                        <span class="position-row-label">Amount ($)</span>
+                        <input type="number" step="1" value="${amount}"
+                               class="position-row-input" id="edit-amount-${signalId}"
+                               onchange="updatePositionField('${signalId}', 'amount', this.value)">
+                    </div>
+                    <div class="position-row-pnl" id="pnl-${signalId}">
+                        P&L: Calculating...
+                    </div>
+                </div>
+            `;
+
+            positionsList.appendChild(positionRow);
+        }
+
+        // Update position field (price or amount)
+        async function updatePositionField(signalId, field, value) {
+            const positionRow = document.getElementById(`position-${signalId}`);
+            if (!positionRow) return;
+
+            if (field === 'price') {
+                positionRow.dataset.buyPrice = value;
+            } else if (field === 'amount') {
+                positionRow.dataset.amount = value;
+            }
+
+            // TODO: Optionally call backend to update position
+            // For now, just update local data
+            console.log(`Updated ${field} for ${signalId} to ${value}`);
+        }
+
+        // Close position from sidebar widget
+        async function closePositionFromWidget(signalId) {
+            const positionRow = document.getElementById(`position-${signalId}`);
+            if (!positionRow) return;
+
+            const symbol = positionRow.dataset.symbol;
+            const buyPrice = parseFloat(positionRow.dataset.buyPrice);
+
+            // Prompt for sell price
+            const currentPrice = prompt(`Enter sell price for ${symbol}:`, buyPrice);
+            if (!currentPrice) return;
+
+            const sellPrice = parseFloat(currentPrice);
+            if (isNaN(sellPrice) || sellPrice <= 0) {
+                alert('Invalid sell price');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/daytrading/position/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        signal_id: signalId,
+                        sell_price: sellPrice
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Play audio notification
+                    const pnl = data.profit_loss;
+                    try {
+                        if (pnl >= 0) {
+                            successSound.play().catch(e => console.log('Audio play failed:', e));
+                        } else {
+                            errorSound.play().catch(e => console.log('Audio play failed:', e));
+                        }
+                    } catch (e) {
+                        console.log('Audio notification failed:', e);
+                    }
+
+                    // Show P&L alert
+                    const pnlPercent = data.profit_loss_percent;
+                    const message = pnl >= 0
+                        ? `✅ Position closed with profit: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`
+                        : `❌ Position closed with loss: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`;
+                    alert(message);
+
+                    // Remove position row
+                    positionRow.remove();
+
+                    // Check if no more positions, show empty state
+                    const positionsList = document.getElementById('active-positions-list');
+                    if (positionsList.children.length === 0) {
+                        positionsList.innerHTML = '<div class="empty-state" style="padding: 20px; font-size: 0.8rem;">No active positions</div>';
+                    }
+
+                    // Refresh signals and P&L
+                    await checkStatus();
+                    await loadWeeklyPnL();
+                } else {
+                    alert(data.error || 'Failed to close position');
+                }
+            } catch (error) {
+                console.error('Error closing position:', error);
+                alert('Failed to close position');
+            }
+        }
+
+        // Update P&L for position rows (called periodically)
+        function updatePositionPnL() {
+            const positions = document.querySelectorAll('.position-row');
+
+            positions.forEach(async (row) => {
+                const signalId = row.dataset.signalId;
+                const symbol = row.dataset.symbol;
+                const buyPrice = parseFloat(row.dataset.buyPrice);
+                const amount = parseFloat(row.dataset.amount);
+
+                // Get current price from signals
+                const signals = document.querySelectorAll('.signal-card');
+                let currentPrice = null;
+
+                signals.forEach(card => {
+                    const cardSymbol = card.querySelector('.signal-symbol');
+                    if (cardSymbol && cardSymbol.textContent === symbol) {
+                        const entryValue = card.querySelector('.level-value.entry');
+                        if (entryValue) {
+                            currentPrice = parseFloat(entryValue.textContent.replace('$', ''));
+                        }
+                    }
+                });
+
+                if (currentPrice && !isNaN(currentPrice)) {
+                    const pnl = (currentPrice - buyPrice) * (amount / buyPrice);
+                    const pnlPercent = ((currentPrice - buyPrice) / buyPrice) * 100;
+
+                    const pnlElement = document.getElementById(`pnl-${signalId}`);
+                    if (pnlElement) {
+                        pnlElement.textContent = `P&L: $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`;
+                        pnlElement.className = 'position-row-pnl ' + (pnl >= 0 ? 'profit' : 'loss');
+                    }
+                }
+            });
+        }
+
+        // Load existing positions on page load
+        async function loadActivePositions() {
+            try {
+                const response = await fetch('/api/daytrading/positions');
+                const data = await response.json();
+
+                if (data.positions && data.positions.length > 0) {
+                    data.positions.forEach(pos => {
+                        addPositionRow(
+                            pos.signal_data.signal_id,
+                            pos.signal_data.symbol,
+                            pos.buy_price,
+                            pos.amount
+                        );
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading positions:', error);
+            }
+        }
+
+        // Open a position (legacy function - kept for compatibility)
         async function openPosition(signalId) {
             const buyPrice = parseFloat(document.getElementById(`buy-price-${signalId}`).value);
             const amount = parseFloat(document.getElementById(`amount-${signalId}`).value);
@@ -1275,8 +1559,13 @@
         // Initialize on page load
         init();
         loadWeeklyPnL();
+        loadActivePositions();
+
         // Refresh P&L every 30 seconds
         setInterval(loadWeeklyPnL, 30000);
+
+        // Update position P&L every 5 seconds
+        setInterval(updatePositionPnL, 5000);
     </script>
 </body>
 </html>
