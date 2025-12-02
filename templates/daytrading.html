@@ -866,7 +866,7 @@
             }
         }
 
-        // Render signals
+        // Render signals (smart update - preserves input fields)
         function renderSignals(signals) {
             const container = document.getElementById('signals-container');
 
@@ -880,13 +880,97 @@
                 return;
             }
 
-            container.innerHTML = '<div class="signals-grid" id="signals-grid"></div>';
-            const grid = document.getElementById('signals-grid');
+            // Ensure grid exists
+            let grid = document.getElementById('signals-grid');
+            if (!grid) {
+                container.innerHTML = '<div class="signals-grid" id="signals-grid"></div>';
+                grid = document.getElementById('signals-grid');
+            }
+
+            // Get existing cards
+            const existingCards = {};
+            Array.from(grid.children).forEach(card => {
+                const signalId = card.dataset.signalId;
+                if (signalId) {
+                    existingCards[signalId] = card;
+                }
+            });
+
+            // Track which signals we've processed
+            const processedSignalIds = new Set();
 
             signals.forEach((signal, index) => {
-                const card = createSignalCard(signal, index);
-                grid.appendChild(card);
+                processedSignalIds.add(signal.signal_id);
+
+                const existingCard = existingCards[signal.signal_id];
+
+                if (existingCard) {
+                    // Update existing card without recreating it
+                    updateSignalCard(existingCard, signal);
+                } else {
+                    // Create new card
+                    const card = createSignalCard(signal, index);
+                    grid.appendChild(card);
+                }
             });
+
+            // Remove cards that are no longer in the signal list
+            Object.keys(existingCards).forEach(signalId => {
+                if (!processedSignalIds.has(signalId)) {
+                    existingCards[signalId].remove();
+                }
+            });
+        }
+
+        // Update existing signal card (preserves input values and focus)
+        function updateSignalCard(card, signal) {
+            // Update badge
+            const badge = card.querySelector('.signal-badge');
+            if (badge) {
+                badge.textContent = signal.signal;
+                badge.className = `signal-badge ${signal.signal.toLowerCase()}`;
+            }
+
+            // Update meta info
+            const metaSpans = card.querySelectorAll('.signal-meta span');
+            if (metaSpans.length >= 3) {
+                metaSpans[0].textContent = `📊 ${signal.indicator}`;
+                metaSpans[1].textContent = `💪 ${signal.strength}`;
+                metaSpans[2].textContent = `📈 R:R ${signal.risk_reward}:1`;
+            }
+
+            // Update reason
+            const reason = card.querySelector('.signal-reason');
+            if (reason) {
+                reason.textContent = signal.reason;
+            }
+
+            // Update levels (only if input fields are not focused)
+            const entryValue = card.querySelector('.level-value.entry');
+            const stopValue = card.querySelector('.level-value.stop');
+            const targetValue = card.querySelector('.level-value.target');
+
+            if (entryValue) entryValue.textContent = `$${signal.entry}`;
+            if (stopValue) stopValue.textContent = `$${signal.stop}`;
+            if (targetValue) targetValue.textContent = `$${signal.target}`;
+
+            // Update input placeholders if not focused (don't overwrite user input)
+            const buyPriceInput = card.querySelector(`#buy-price-${signal.signal_id}`);
+            if (buyPriceInput && document.activeElement !== buyPriceInput && !buyPriceInput.value) {
+                buyPriceInput.value = signal.entry;
+            }
+
+            const sellPriceInput = card.querySelector(`#sell-price-${signal.signal_id}`);
+            if (sellPriceInput && document.activeElement !== sellPriceInput && signal.has_position) {
+                // Update position info if exists
+                const positionInfo = card.querySelector('.position-info');
+                if (positionInfo && signal.position_data) {
+                    const boughtAtValue = positionInfo.querySelector('.position-info-value');
+                    if (boughtAtValue) {
+                        boughtAtValue.textContent = `$${signal.position_data.buy_price}`;
+                    }
+                }
+            }
         }
 
         // Create signal card with chart
