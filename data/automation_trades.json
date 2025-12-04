@@ -1,0 +1,608 @@
+[
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 41.06,
+    "amount_usd": 1000,
+    "shares": 24.3576,
+    "timestamp": "2025-12-04T12:19:28.679828-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "BUY",
+    "price": 14.4,
+    "amount_usd": 1000,
+    "shares": 69.4203,
+    "timestamp": "2025-12-04T12:19:28.937638-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 41.14,
+    "amount_usd": 250,
+    "shares": 6.0762,
+    "timestamp": "2025-12-04T12:24:30.702579-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "BUY",
+    "price": 65.31,
+    "amount_usd": 1000,
+    "shares": 15.3128,
+    "timestamp": "2025-12-04T12:24:32.672673-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.41,
+    "amount_usd": 1000,
+    "shares": 3.7118,
+    "timestamp": "2025-12-04T12:29:34.310959-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.41,
+    "amount_usd": 1000,
+    "shares": 3.7118,
+    "timestamp": "2025-12-04T12:29:34.311015-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "BUY",
+    "price": 65.36,
+    "amount_usd": 250,
+    "shares": 3.8253,
+    "timestamp": "2025-12-04T12:29:34.818946-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "SELL",
+    "price": 65.41,
+    "amount_usd": 1251.91313454895,
+    "shares": 19.1381,
+    "timestamp": "2025-12-04T12:34:36.570295-06:00",
+    "profit_loss": 1.91,
+    "profit_loss_pct": 0.15,
+    "shares_sold": 19.138099999999998,
+    "entry_price": 65.30500030517578,
+    "entry_time": "2025-12-04T12:24:32.672673-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "BUY",
+    "price": 14.49,
+    "amount_usd": 250,
+    "shares": 17.2473,
+    "timestamp": "2025-12-04T12:39:37.045331-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "SELL",
+    "price": 14.42,
+    "amount_usd": 1249.746798612213,
+    "shares": 86.6676,
+    "timestamp": "2025-12-04T12:44:39.030517-06:00",
+    "profit_loss": -0.25,
+    "profit_loss_pct": -0.02,
+    "shares_sold": 86.6676,
+    "entry_price": 14.404999732971191,
+    "entry_time": "2025-12-04T12:19:28.937638-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "BUY",
+    "price": 14.35,
+    "amount_usd": 1000,
+    "shares": 69.6621,
+    "timestamp": "2025-12-04T12:54:42.833992-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 371.45,
+    "amount_usd": 1000,
+    "shares": 2.6921,
+    "timestamp": "2025-12-04T13:16:05.329755-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.03,
+    "amount_usd": 250,
+    "shares": 0.9293,
+    "timestamp": "2025-12-04T13:16:05.643055-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "SELL",
+    "price": 40.62,
+    "amount_usd": 1236.3457264068604,
+    "shares": 30.4338,
+    "timestamp": "2025-12-04T13:21:06.329960-06:00",
+    "profit_loss": -13.65,
+    "profit_loss_pct": -1.09,
+    "shares_sold": 30.4338,
+    "entry_price": 41.05500030517578,
+    "entry_time": "2025-12-04T12:19:28.679828-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.62,
+    "amount_usd": 250,
+    "shares": 6.154,
+    "timestamp": "2025-12-04T13:21:06.330041-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "BUY",
+    "price": 14.41,
+    "amount_usd": 250,
+    "shares": 17.3491,
+    "timestamp": "2025-12-04T13:21:06.651866-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 317.08,
+    "amount_usd": 1000,
+    "shares": 3.1538,
+    "timestamp": "2025-12-04T13:21:07.188863-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 370.73,
+    "amount_usd": 250,
+    "shares": 0.6743,
+    "timestamp": "2025-12-04T13:21:07.598177-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 268.58,
+    "amount_usd": 250,
+    "shares": 0.9308,
+    "timestamp": "2025-12-04T13:21:07.883324-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 268.58,
+    "amount_usd": 250,
+    "shares": 0.9308,
+    "timestamp": "2025-12-04T13:21:07.883391-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.61,
+    "amount_usd": 1000,
+    "shares": 24.6245,
+    "timestamp": "2025-12-04T13:26:08.512050-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 370.83,
+    "amount_usd": 250,
+    "shares": 0.6742,
+    "timestamp": "2025-12-04T13:26:09.585699-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 370.83,
+    "amount_usd": 250,
+    "shares": 0.6742,
+    "timestamp": "2025-12-04T13:26:09.585794-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "BUY",
+    "price": 64.93,
+    "amount_usd": 1000,
+    "shares": 15.4012,
+    "timestamp": "2025-12-04T13:26:10.185923-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.54,
+    "amount_usd": 250,
+    "shares": 6.1667,
+    "timestamp": "2025-12-04T14:10:26.539482-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 370.88,
+    "amount_usd": 250,
+    "shares": 0.6741,
+    "timestamp": "2025-12-04T14:10:27.697000-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "BUY",
+    "price": 14.34,
+    "amount_usd": 250,
+    "shares": 17.4375,
+    "timestamp": "2025-12-04T14:26:51.896614-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "SELL",
+    "price": 40.31,
+    "amount_usd": 1241.0393253967286,
+    "shares": 30.7912,
+    "timestamp": "2025-12-04T14:36:55.351743-06:00",
+    "profit_loss": -8.96,
+    "profit_loss_pct": -0.72,
+    "shares_sold": 30.7912,
+    "entry_price": 40.61000061035156,
+    "entry_time": "2025-12-04T13:26:08.512050-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.19,
+    "amount_usd": 1000,
+    "shares": 24.8817,
+    "timestamp": "2025-12-04T14:41:57.170939-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "SELL",
+    "price": 317.81,
+    "amount_usd": 1002.3094590393066,
+    "shares": 3.1538,
+    "timestamp": "2025-12-04T14:46:59.585604-06:00",
+    "profit_loss": 2.31,
+    "profit_loss_pct": 0.23,
+    "shares_sold": 3.1538,
+    "entry_price": 317.0799865722656,
+    "entry_time": "2025-12-04T13:21:07.188863-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.2,
+    "amount_usd": 1000,
+    "shares": 3.1526,
+    "timestamp": "2025-12-04T14:52:01.312597-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.87,
+    "amount_usd": 250,
+    "shares": 0.9264,
+    "timestamp": "2025-12-04T14:52:02.096028-06:00"
+  },
+  {
+    "symbol": "META",
+    "signal": "BUY",
+    "price": 661.95,
+    "amount_usd": 1000,
+    "shares": 1.5107,
+    "timestamp": "2025-12-04T14:52:02.344943-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "BUY",
+    "price": 64.59,
+    "amount_usd": 250,
+    "shares": 3.8706,
+    "timestamp": "2025-12-04T14:52:02.683270-06:00"
+  },
+  {
+    "symbol": "MCHP",
+    "signal": "BUY",
+    "price": 64.59,
+    "amount_usd": 250,
+    "shares": 3.8706,
+    "timestamp": "2025-12-04T14:52:02.683323-06:00"
+  },
+  {
+    "symbol": "AAL",
+    "signal": "SELL",
+    "price": 14.34,
+    "amount_usd": 1497.2721184844017,
+    "shares": 104.4487,
+    "timestamp": "2025-12-04T14:57:03.276769-06:00",
+    "profit_loss": -2.73,
+    "profit_loss_pct": -0.18,
+    "shares_sold": 104.4487,
+    "entry_price": 14.354999542236328,
+    "entry_time": "2025-12-04T12:54:42.833992-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.51,
+    "amount_usd": 250,
+    "shares": 6.1713,
+    "timestamp": "2025-12-04T15:02:04.914145-06:00"
+  },
+  {
+    "symbol": "HPQ",
+    "signal": "BUY",
+    "price": 25.92,
+    "amount_usd": 1000,
+    "shares": 38.5728,
+    "timestamp": "2025-12-04T15:02:05.538479-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:02:05.937908-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:02:05.937988-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 1000,
+    "shares": 3.1408,
+    "timestamp": "2025-12-04T15:02:06.198538-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 1000,
+    "shares": 3.1408,
+    "timestamp": "2025-12-04T15:02:06.198593-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 371.08,
+    "amount_usd": 250,
+    "shares": 0.6737,
+    "timestamp": "2025-12-04T15:02:06.603014-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.55,
+    "amount_usd": 250,
+    "shares": 0.9275,
+    "timestamp": "2025-12-04T15:02:06.918358-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.55,
+    "amount_usd": 250,
+    "shares": 0.9275,
+    "timestamp": "2025-12-04T15:02:06.918441-06:00"
+  },
+  {
+    "symbol": "META",
+    "signal": "BUY",
+    "price": 661.73,
+    "amount_usd": 250,
+    "shares": 0.3778,
+    "timestamp": "2025-12-04T15:02:07.213236-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.51,
+    "amount_usd": 250,
+    "shares": 6.1713,
+    "timestamp": "2025-12-04T15:07:07.613136-06:00"
+  },
+  {
+    "symbol": "HPQ",
+    "signal": "BUY",
+    "price": 25.92,
+    "amount_usd": 250,
+    "shares": 9.6432,
+    "timestamp": "2025-12-04T15:07:08.135957-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:07:08.391734-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:07:08.391799-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:07:08.758852-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:07:08.758898-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 371.08,
+    "amount_usd": 250,
+    "shares": 0.6737,
+    "timestamp": "2025-12-04T15:07:09.312992-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.55,
+    "amount_usd": 250,
+    "shares": 0.9275,
+    "timestamp": "2025-12-04T15:07:09.545745-06:00"
+  },
+  {
+    "symbol": "AMAT",
+    "signal": "BUY",
+    "price": 269.55,
+    "amount_usd": 250,
+    "shares": 0.9275,
+    "timestamp": "2025-12-04T15:07:09.545820-06:00"
+  },
+  {
+    "symbol": "META",
+    "signal": "BUY",
+    "price": 661.73,
+    "amount_usd": 250,
+    "shares": 0.3778,
+    "timestamp": "2025-12-04T15:07:09.843626-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.51,
+    "amount_usd": 250,
+    "shares": 6.1713,
+    "timestamp": "2025-12-04T15:12:10.273548-06:00"
+  },
+  {
+    "symbol": "HPQ",
+    "signal": "BUY",
+    "price": 25.92,
+    "amount_usd": 250,
+    "shares": 9.6432,
+    "timestamp": "2025-12-04T15:12:10.974799-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:12:11.295664-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:12:11.295738-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:12:11.544123-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:12:11.544168-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 371.08,
+    "amount_usd": 250,
+    "shares": 0.6737,
+    "timestamp": "2025-12-04T15:12:11.983150-06:00"
+  },
+  {
+    "symbol": "META",
+    "signal": "BUY",
+    "price": 661.73,
+    "amount_usd": 250,
+    "shares": 0.3778,
+    "timestamp": "2025-12-04T15:12:12.515499-06:00"
+  },
+  {
+    "symbol": "INTC",
+    "signal": "BUY",
+    "price": 40.51,
+    "amount_usd": 250,
+    "shares": 6.1713,
+    "timestamp": "2025-12-04T15:22:21.908929-06:00"
+  },
+  {
+    "symbol": "HPQ",
+    "signal": "BUY",
+    "price": 25.92,
+    "amount_usd": 250,
+    "shares": 9.6432,
+    "timestamp": "2025-12-04T15:22:22.497963-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:22:22.821044-06:00"
+  },
+  {
+    "symbol": "GOOGL",
+    "signal": "BUY",
+    "price": 317.58,
+    "amount_usd": 250,
+    "shares": 0.7872,
+    "timestamp": "2025-12-04T15:22:22.821086-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:22:23.150036-06:00"
+  },
+  {
+    "symbol": "GOOG",
+    "signal": "BUY",
+    "price": 318.39,
+    "amount_usd": 250,
+    "shares": 0.7852,
+    "timestamp": "2025-12-04T15:22:23.150085-06:00"
+  },
+  {
+    "symbol": "AXP",
+    "signal": "BUY",
+    "price": 371.21,
+    "amount_usd": 250,
+    "shares": 0.6735,
+    "timestamp": "2025-12-04T15:22:23.717127-06:00"
+  },
+  {
+    "symbol": "META",
+    "signal": "BUY",
+    "price": 661.73,
+    "amount_usd": 250,
+    "shares": 0.3778,
+    "timestamp": "2025-12-04T15:22:24.594308-06:00"
+  }
+]

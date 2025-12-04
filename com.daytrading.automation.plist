@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.daytrading.automation</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/shashi/.claude-worktrees/sentiment-agent/pensive-easley/.venv312/bin/python</string>
+        <string>/Users/shashi/.claude-worktrees/sentiment-agent/pensive-easley/automation_scheduler.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/shashi/.claude-worktrees/sentiment-agent/pensive-easley</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/shashi/.claude-worktrees/sentiment-agent/pensive-easley/logs/automation.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/shashi/.claude-worktrees/sentiment-agent/pensive-easley/logs/automation.error.log</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
